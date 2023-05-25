@@ -1,5 +1,7 @@
 package dev.catsuperberg.bingogen.client.model.start
 
-interface IStartModel {
-    fun requestServers()
+import dev.catsuperberg.bingogen.client.model.common.IBaseModel
+
+interface IStartModel : IBaseModel {
+    fun saveServers(servers: List<String>?)
 }

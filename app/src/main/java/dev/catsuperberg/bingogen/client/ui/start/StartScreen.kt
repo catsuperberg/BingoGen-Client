@@ -18,10 +18,10 @@ fun StartScreen(viewModel: IStartViewModel) {
         verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top)
     ) {
         Text("START SCREEN")
-        TextButton(onClick = viewModel::requestSinglePlayer) {
+        TextButton(onClick = viewModel::onSinglePlayer) {
             Text(text = "Single Player")
         }
-        TextButton(onClick = viewModel::requestMultiplayer) {
+        TextButton(onClick = viewModel::onMultiplayer) {
             Text(text = "Multiplayer")
         }
     }

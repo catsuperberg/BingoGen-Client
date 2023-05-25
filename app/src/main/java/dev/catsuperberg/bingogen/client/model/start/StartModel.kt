@@ -1,19 +1,43 @@
 package dev.catsuperberg.bingogen.client.model.start
 
+import androidx.datastore.core.DataStore
+import dev.catsuperberg.bingogen.client.Credentials
+import dev.catsuperberg.bingogen.client.model.common.BaseModel
 import dev.catsuperberg.bingogen.client.view.model.start.IStartModelReceiver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.koin.core.component.KoinComponent
 
-class StartModel(private val receiver: IStartModelReceiver) : IStartModel {
-    override fun requestServers() {
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(500) // Api call
-            receiver.didLoadServers(
-                listOf("localhost:1111", "0.0.0.0:2222", "127.0.0.1:3333", "192.168.1.1:4444"),
-                0,
-            )
+class StartModel(
+    private val receiver: IStartModelReceiver,
+    private val dataStore: DataStore<Credentials>,
+    modelScope: CoroutineScope = defaultScope,
+) : IStartModel, BaseModel(modelScope), KoinComponent {
+    init {
+        scope.launch {
+            dataStore.data
+                .map { credentials -> credentials.serversList }
+                .map { servers -> servers?.filterNotNull() ?: listOf() }
+                .collect(receiver::didStoredServersChange)
         }
     }
+
+    override fun saveServers(servers: List<String>?) {
+        scope.launch {
+            setServers(servers)
+        }
+    }
+
+    private suspend fun setServers(servers: List<String>?) =
+        withContext(Dispatchers.IO) {
+            dataStore.updateData { credentials ->
+                credentials.toBuilder()
+                    .clearServers()
+                    .addAllServers(servers)
+                    .build()
+            }
+        }
 }

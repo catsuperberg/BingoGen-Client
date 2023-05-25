@@ -27,7 +27,7 @@ class StartNode(
     ),
 ) : ParentNode<StartNode.NavTarget>(
     navModel = backStack,
-    buildContext = buildContext
+    buildContext = buildContext,
 ) {
     sealed class NavTarget : Parcelable {
         @Parcelize

@@ -1,6 +1,8 @@
 package dev.catsuperberg.bingogen.client
 
 import android.app.Application
+import android.content.Context
+import dev.catsuperberg.bingogen.client.data.store.credentialsDataStore
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameSetupModel
 import dev.catsuperberg.bingogen.client.model.start.StartModel
@@ -57,13 +59,17 @@ class MainApp : Application() {
             } bind IGameViewModel::class
         }
 
+        val dataStoreModule = module {
+            single { get<Context>().credentialsDataStore }
+        }
+
         val appModule = module {
             viewModel {
                 val state = StartState()
                 StartViewModel(
                     navCallbacks = get(),
                     state = state,
-                    model = StartModel(state),
+                    model = StartModel(state, get()),
                 )
             } bind IStartViewModel::class
         }
@@ -88,6 +94,7 @@ class MainApp : Application() {
             androidLogger()
             androidContext(this@MainApp)
             modules(
+                dataStoreModule,
                 appModule,
                 singlePlayerModule,
                 multiplayerModule,

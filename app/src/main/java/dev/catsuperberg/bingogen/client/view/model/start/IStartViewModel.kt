@@ -1,30 +1,37 @@
 package dev.catsuperberg.bingogen.client.view.model.start
 
-import androidx.compose.runtime.State
+import dev.catsuperberg.bingogen.client.common.ServerAddress
+import kotlinx.coroutines.flow.StateFlow
 
 interface IStartFields {
-    val serverList: State<List<String>>
-    val selectedServerIndex: State<Int?>
+    val serverList: StateFlow<List<String>>
+    val serverString: StateFlow<String>
+    val indicateBadInput: StateFlow<Boolean>
 }
 
 interface IStartRequests {
-    fun requestServerChange(index: Int)
-    fun requestSinglePlayer()
-    fun requestMultiplayer()
+    fun onServerStringChange(value: String)
+    fun onSelectServerFromList(index: Int)
+    fun onDeleteServer(index: Int)
+    fun onSinglePlayer()
+    fun onMultiplayer()
 }
 
 
-interface IStartViewModel : IStartFields, IStartRequests {
+interface IStartViewModel : IStartRequests {
+    val state: IStartState
     data class NavCallbacks(
-        val onSinglePlayer: () -> Unit,
-        val onMultiplayer: () -> Unit,
+        val onSinglePlayer: (server: ServerAddress) -> Unit,
+        val onMultiplayer: (server: ServerAddress) -> Unit,
     )
 }
 
 interface IStartModelReceiver {
-    fun didLoadServers(servers: List<String>, selected: Int)
+    fun didStoredServersChange(servers: List<String>)
 }
 
 interface IStartState : IStartFields, IStartModelReceiver {
-    fun setSelectedServer(index: Int)
+    fun setInputToServer(index: Int)
+    fun setIndicateBadInput(value: Boolean)
+    fun setServerString(string: String)
 }

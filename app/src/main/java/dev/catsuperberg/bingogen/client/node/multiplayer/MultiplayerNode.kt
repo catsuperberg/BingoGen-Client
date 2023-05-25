@@ -32,7 +32,7 @@ class MultiplayerNode(
     )
 ) : ParentNode<MultiplayerNode.NavTarget>(
     navModel = backStack,
-    buildContext = buildContext
+    buildContext = buildContext,
 ), KoinScopeComponent {
     override val scope: Scope by lazy { createScope(this) }
     private fun onFinish() {
