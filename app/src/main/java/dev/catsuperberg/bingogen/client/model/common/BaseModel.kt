@@ -9,7 +9,8 @@ abstract class BaseModel(
     protected val scope: CoroutineScope
 ) : IBaseModel {
     companion object {
-        val defaultScope = CoroutineScope(Job() + Dispatchers.IO)
+        val defaultScope
+            get() = CoroutineScope(Job() + Dispatchers.IO)
     }
 
     override fun close() {

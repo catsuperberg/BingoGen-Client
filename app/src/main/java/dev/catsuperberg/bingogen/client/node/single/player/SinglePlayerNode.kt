@@ -30,7 +30,7 @@ class SinglePlayerNode (
     )
 ) : ParentNode<SinglePlayerNode.NavTarget>(
     navModel = backStack,
-    buildContext = buildContext
+    buildContext = buildContext,
 ), KoinScopeComponent {
     override val scope: Scope by lazy { createScope(this) }
     private fun onFinish() {
@@ -50,8 +50,8 @@ class SinglePlayerNode (
         when (navTarget) {
             is NavTarget.GameSetup -> screenNode(buildContext) {
                 val callbacks = IGameSetupViewModel.NavCallbacks(
-                    onStartGame = { game: String, sheet: String ->
-                        backStack.push(NavTarget.Game(IGameViewModel.Selection(game, sheet)))
+                    onStartGame = { game: String, sheet: String, sideCount: Int ->
+                        backStack.push(NavTarget.Game(IGameViewModel.Selection(game, sheet, sideCount)))
                     },
                     onBack = ::onFinish,
                 )

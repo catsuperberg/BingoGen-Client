@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupViewModel
@@ -13,25 +15,25 @@ import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupVi
 @Composable
 fun GameSetupScreen(viewModel: IGameSetupViewModel) {
     Column {
-        val gameSelection = viewModel.gameSelection
+        val gameSelection by viewModel.state.gameSelection.collectAsState()
         Text(text = "Game selection:")
-        gameSelection.value.forEach {
+        gameSelection.forEach {
             Text(text = "- $it")
         }
 
-        val sheetSelection = viewModel.sheetSelection
+        val sheetSelection by viewModel.state.sheetSelection.collectAsState()
         Text(text = "Sheet selection:")
-        sheetSelection.value.forEach {
+        sheetSelection.forEach {
             Text(text = "- $it")
         }
 
 
         Spacer(modifier = Modifier.height(30.dp))
         Text(text = "Game setup placeholder")
-        TextButton(onClick = viewModel::requestSetupDone) {
+        TextButton(onClick = viewModel::onDone) {
             Text(text = "Start game")
         }
-        TextButton(onClick = viewModel::requestBack) {
+        TextButton(onClick = viewModel::onBack) {
             Text(text = "Back")
         }
     }

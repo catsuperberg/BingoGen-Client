@@ -62,8 +62,8 @@ class MultiplayerNode(
             }
             is NavTarget.GameSetup -> screenNode(buildContext) {
                 val callbacks = IGameSetupViewModel.NavCallbacks(
-                    onStartGame = { game: String, sheet: String ->
-                        backStack.push(NavTarget.Game(IGameViewModel.Selection(game, sheet)))
+                    onStartGame = { game: String, sheet: String, sideCount: Int ->
+                        backStack.push(NavTarget.Game(IGameViewModel.Selection(game, sheet, sideCount)))
                     },
                     onBack = { backStack.pop() },
                 )

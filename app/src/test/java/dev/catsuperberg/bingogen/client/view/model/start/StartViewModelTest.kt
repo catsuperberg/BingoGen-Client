@@ -27,9 +27,9 @@ class StartViewModelTest {
         private val testServersWithoutSecond = listOf("127.0.0.1:8080", "0.0.0.0:1111",)
     }
 
-    @Mock lateinit var mockCallbacks: IStartViewModel.NavCallbacks
-    @Mock lateinit var mockState: IStartState
-    @Mock lateinit var mockModel: IStartModel
+    @Mock private lateinit var mockCallbacks: IStartViewModel.NavCallbacks
+    @Mock private lateinit var mockState: IStartState
+    @Mock private lateinit var mockModel: IStartModel
 
 
     @Before

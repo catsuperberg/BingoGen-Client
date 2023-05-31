@@ -22,6 +22,7 @@ interface IGameViewModel: IGameFields, IGameRequests {
     data class Selection(
         val game: String,
         val sheet: String,
+        val sideCount: Int,
     ) : Parcelable
 }
 

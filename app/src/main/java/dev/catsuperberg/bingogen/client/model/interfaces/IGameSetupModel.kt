@@ -1,6 +1,8 @@
 package dev.catsuperberg.bingogen.client.model.interfaces
 
-interface IGameSetupModel {
+import dev.catsuperberg.bingogen.client.model.common.IBaseModel
+
+interface IGameSetupModel : IBaseModel {
     fun requestGameList()
-    fun requestSheetList()
+    fun requestSheetList(gameName: String)
 }
