@@ -2,6 +2,8 @@ package dev.catsuperberg.bingogen.client.service.test.data
 
 import dev.catsuperberg.bingogen.client.common.Grid
 import dev.catsuperberg.bingogen.client.common.Task
+import dev.catsuperberg.bingogen.client.common.TaskState
+import dev.catsuperberg.bingogen.client.common.TaskStatus
 import org.joda.time.Duration
 import java.util.Collections
 
@@ -37,11 +39,11 @@ object TestServerResponses {
     object Board {
         private const val sideCount = 5
         private val taskPresets = setOf(
-                Task(1, "test", "test", Duration.millis(1), true),
-                Task(2, "test", "test", Duration.millis(1), false),
-                Task(3, "test", "test", null, false),
-                Task(4, "test", "", null, false),
-                Task(0, "", "", null, false),
+                Task(1, "test", "test", TaskState(Duration.millis(1), false, TaskStatus.ACTIVE)),
+                Task(2, "test", "test", TaskState(Duration.millis(1), null, TaskStatus.ACTIVE)),
+                Task(3, "test", "test", TaskState(null, null, TaskStatus.ACTIVE)),
+                Task(4, "test", "", TaskState(null, null, TaskStatus.ACTIVE)),
+                Task(0, "", "", TaskState(null, null, TaskStatus.ACTIVE)),
             )
 
         private val boardTasks by lazy {
@@ -59,11 +61,11 @@ object TestServerResponses {
             "dbid": $dbid,
             "shortText": "$shortText",
             "description": "$description",
-            "timeToKeepMS": ${timeToKeep?.millis.toString()},
-            "fromStart": ${fromStart.toString()}
+            "timeToKeepMS": ${state.timeToKeep?.millis.toString()},
+            "fromStart": ${state.keptFromStart != null}
             """.trimIndent()
 
-        val expected = Grid(boardTasks.toList().chunked(sideCount))
+        val expected = Grid(boardTasks.toList())
         val body =
             """
             |{

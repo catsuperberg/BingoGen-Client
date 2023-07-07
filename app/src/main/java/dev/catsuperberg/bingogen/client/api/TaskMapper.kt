@@ -1,6 +1,8 @@
 package dev.catsuperberg.bingogen.client.api
 
 import dev.catsuperberg.bingogen.client.common.Task
+import dev.catsuperberg.bingogen.client.common.TaskState
+import dev.catsuperberg.bingogen.client.common.TaskStatus
 import org.joda.time.Duration
 
 class TaskMapper : ITaskMapper{
@@ -9,8 +11,11 @@ class TaskMapper : ITaskMapper{
             dto.dbid,
             dto.shortText,
             dto.description,
-            dto.timeToKeepMS?.let { Duration.millis(it) },
-            dto.fromStart,
+            TaskState(
+                timeToKeep = dto.timeToKeepMS?.let { Duration.millis(it) },
+                keptFromStart = if (dto.fromStart) false else null,
+                status = TaskStatus.ACTIVE,
+            )
         )
     }
 
@@ -19,8 +24,8 @@ class TaskMapper : ITaskMapper{
             task.dbid,
             task.shortText,
             task.description,
-            task.timeToKeep?.millis,
-            task.fromStart,
+            task.state.timeToKeep?.millis,
+            task.state.keptFromStart != null,
         )
     }
 }

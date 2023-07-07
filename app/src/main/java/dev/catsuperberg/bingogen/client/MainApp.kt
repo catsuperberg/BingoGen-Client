@@ -51,7 +51,6 @@ class MainApp : Application() {
             viewModel {
                 val state = GameState()
                 GameViewModel(
-                    selection = get(),
                     navCallbacks = get(),
                     state = state,
                     model = get { parametersOf(state) },

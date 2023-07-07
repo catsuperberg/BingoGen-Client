@@ -2,16 +2,29 @@ package dev.catsuperberg.bingogen.client.model.multiplayer.game
 
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameModelReceiver
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class GameModel(private val receiver: IGameModelReceiver): IGameModel {
-    override fun requestBoard() {
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(500) // Api call
-            receiver.didLoadBoard(listOf(listOf("multiplayer", "things"), listOf("pvp", "match")))
-        }
+    override fun requestDetailsUpdates(tileIndex: Int) {
+        TODO("Not yet implemented")
+    }
+
+    override fun stopDetailsUpdates() {
+        TODO("Not yet implemented")
+    }
+
+    override fun toggleTaskDone(tileIndex: Int, state: Boolean?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun toggleTaskTimer(tileIndex: Int, state: Boolean?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun toggleTaskKeptFromStart(taskIndex: Int, state: Boolean?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun restartTaskTimer(tileIndex: Int) {
+        TODO("Not yet implemented")
     }
 }

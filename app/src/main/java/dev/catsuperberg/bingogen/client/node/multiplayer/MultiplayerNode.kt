@@ -10,6 +10,7 @@ import com.bumble.appyx.core.node.ParentNode
 import com.bumble.appyx.navmodel.backstack.BackStack
 import com.bumble.appyx.navmodel.backstack.operation.pop
 import com.bumble.appyx.navmodel.backstack.operation.push
+import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.node.helper.screenNode
 import dev.catsuperberg.bingogen.client.ui.multiplayer.LobbySelectorScreen
 import dev.catsuperberg.bingogen.client.ui.single.GameScreen
@@ -48,7 +49,7 @@ class MultiplayerNode(
         object GameSetup : NavTarget()
 
         @Parcelize
-        class Game(val selection: IGameViewModel.Selection) : NavTarget()
+        class Game(val selection: IGameModel.Selection) : NavTarget()
     }
 
     override fun resolve(navTarget: NavTarget, buildContext: BuildContext): Node =
@@ -63,7 +64,7 @@ class MultiplayerNode(
             is NavTarget.GameSetup -> screenNode(buildContext) {
                 val callbacks = IGameSetupViewModel.NavCallbacks(
                     onStartGame = { game: String, sheet: String, sideCount: Int ->
-                        backStack.push(NavTarget.Game(IGameViewModel.Selection(game, sheet, sideCount)))
+                        backStack.push(NavTarget.Game(IGameModel.Selection(game, sheet, sideCount)))
                     },
                     onBack = { backStack.pop() },
                 )

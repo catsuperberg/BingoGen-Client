@@ -6,7 +6,7 @@ import dev.catsuperberg.bingogen.client.common.Task
 class GridMapper(private val taskMapper: ITaskMapper) : IGridMapper {
     override fun map(dto: GridDTO): Grid<Task> {
         val taskRows = dto.rows.map { row -> row.map { taskMapper.map(it) } }
-        return Grid(taskRows)
+        return Grid.fromRows(taskRows)
     }
 
     override fun map(grid: Grid<Task>): GridDTO {

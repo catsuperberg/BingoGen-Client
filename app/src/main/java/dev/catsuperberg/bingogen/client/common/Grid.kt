@@ -1,21 +1,28 @@
 package dev.catsuperberg.bingogen.client.common
 
-class Grid<T>(val rows: List<List<T>>) {
-    init {
-        require(rows.map { it.size }.toSet().let { it.size == 1 && it.first() == rows.size }) {
-            throw IllegalArgumentException("Grid only accepts square list of lists")
-        }
+import kotlin.math.sqrt
+
+class Grid<T>(private val data: List<T>) : List<T> by data, AbstractList<T>() {
+    companion object {
+        fun <T> fromRows(rows: List<List<T>>): Grid<T> = Grid(rows.flatten())
+        fun <T> List<T>.toGrid() = Grid(this)
     }
-    val sideCount: Int
-        get() = rows.size
-    val count: Int
-        get() = rows.size * rows.size
-    val columns: List<List<T>>
-        get() = List(rows.size) { column -> List(rows.size) { row -> rows[row][column] } }
+
+    var sideCount: Int = run {
+        val count = sqrt(this.size.toDouble())
+        require(count.toInt().toDouble() == count) {
+            throw IllegalArgumentException("Provided sequence length doesn't allow for square grid")
+        }
+        count.toInt()
+    }
+    val rows: List<List<T>> by lazy { this.chunked(sideCount) }
+    val columns: List<List<T>> by lazy {
+        List(sideCount) { position -> List(sideCount) { offset -> this[offset * sideCount + position] } }
+    }
 
     fun column(index: Int): List<T> = List(rows.size) { row -> rows[row][index] }
     fun row(index: Int): List<T> = rows[index]
 
+
     override fun toString(): String = rows.toString()
-    override fun equals(other: Any?) = this === other || other is Grid<*> && rows == other.rows
 }

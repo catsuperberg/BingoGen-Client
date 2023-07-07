@@ -3,7 +3,6 @@ package dev.catsuperberg.bingogen.client.view.model.common.gamesetup
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameSetupModel
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupState.Direction
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
@@ -31,10 +30,6 @@ class GameSetupViewModelTest {
         MockitoAnnotations.openMocks(this)
         Mockito.`when`(mockCallbacks.onStartGame).thenReturn(mock())
         Mockito.`when`(mockCallbacks.onBack).thenReturn(mock())
-    }
-
-    @After
-    fun tearDown() {
     }
 
 

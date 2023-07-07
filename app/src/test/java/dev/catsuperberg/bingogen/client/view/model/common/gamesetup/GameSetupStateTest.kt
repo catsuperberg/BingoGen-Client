@@ -3,24 +3,13 @@ package dev.catsuperberg.bingogen.client.view.model.common.gamesetup
 import app.cash.turbine.test
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupState.Direction
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
-import org.junit.Before
 import org.junit.Test
 
 class GameSetupStateTest {
     private val testGames = listOf("Game 1", "Game 2", "Game 3", "Game 4")
     private val testSheets = listOf("Sheet 1", "Sheet 2", "Sheet 3", "Sheet 4")
-    private val testMessages = listOf("Message 1", "Message 2", "Message 3", "Message 4")
-
-    @Before
-    fun setUp() {
-    }
-
-    @After
-    fun tearDown() {
-    }
 
     @Test
     fun testDidLoadGames() {
@@ -38,6 +27,7 @@ class GameSetupStateTest {
 
     @Test
     fun testDidServerCallFailedEmitsSnackBarMessage() = runBlocking {
+        val testMessages = listOf("Message 1", "Message 2", "Message 3", "Message 4")
         val state = GameSetupState()
         state.snackBarMessage.test {
             testMessages.forEach { message ->
