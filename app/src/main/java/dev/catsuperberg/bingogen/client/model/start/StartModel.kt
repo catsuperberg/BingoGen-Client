@@ -5,7 +5,8 @@ import dev.catsuperberg.bingogen.client.Credentials
 import dev.catsuperberg.bingogen.client.model.common.BaseModel
 import dev.catsuperberg.bingogen.client.view.model.start.IStartModelReceiver
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -16,6 +17,8 @@ class StartModel(
     private val dataStore: DataStore<Credentials>,
     modelScope: CoroutineScope = defaultScope,
 ) : IStartModel, BaseModel(modelScope), KoinComponent {
+    private var dataStoreUpdateJob: Job? = null
+
     init {
         scope.launch {
             dataStore.data
@@ -26,18 +29,15 @@ class StartModel(
     }
 
     override fun saveServers(servers: List<String>?) {
-        scope.launch {
-            setServers(servers)
-        }
-    }
-
-    private suspend fun setServers(servers: List<String>?) =
-        withContext(Dispatchers.IO) {
-            dataStore.updateData { credentials ->
-                credentials.toBuilder()
-                    .clearServers()
-                    .addAllServers(servers)
-                    .build()
+        dataStoreUpdateJob = scope.launch {
+            withContext(NonCancellable) {
+                dataStore.updateData { credentials ->
+                    credentials.toBuilder()
+                        .clearServers()
+                        .addAllServers(servers)
+                        .build()
+                }
             }
         }
+    }
 }

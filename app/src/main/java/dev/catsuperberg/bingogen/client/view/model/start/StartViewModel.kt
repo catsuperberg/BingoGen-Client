@@ -1,17 +1,20 @@
 package dev.catsuperberg.bingogen.client.view.model.start
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dev.catsuperberg.bingogen.client.common.ServerAddress
 import dev.catsuperberg.bingogen.client.common.ServerAddress.Companion.toServerAddress
 import dev.catsuperberg.bingogen.client.model.start.IStartModel
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class StartViewModel(
     navCallbacks: IStartViewModel.NavCallbacks,
     override val state: IStartState,
     private val model: IStartModel,
 ) : ViewModel(), IStartViewModel {
-    // FIXME Needed as appyx don't support ViewModel as ViewModelStoreOwner onCleared() isn't called
+    // FIXME Needed as appyx doesn't support ViewModel as ViewModelStoreOwner onCleared() isn't called
     private val navCallbacks = IStartViewModel.NavCallbacks(
         onSinglePlayer = { server ->
             stopModelScope()
@@ -24,8 +27,18 @@ class StartViewModel(
     )
 
     init {
-        if (state.serverList.value.isNotEmpty())
-            state.setInputToServer(0)
+        setInputToTopServerOnFirstValidList()
+    }
+
+    private fun setInputToTopServerOnFirstValidList() {
+        viewModelScope.launch {
+            state.serverList.collect { servers ->
+                if (servers.isNotEmpty()) {
+                    state.setInputToServer(0)
+                    cancel()
+                }
+            }
+        }
     }
 
     override fun onServerStringChange(value: String) {
@@ -90,7 +103,7 @@ class StartState() : IStartState {
     override val indicateBadInput: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     override fun didStoredServersChange(servers: List<String>) {
-            serverList.value = servers
+        serverList.value = servers
     }
 
     override fun setInputToServer(index: Int) {

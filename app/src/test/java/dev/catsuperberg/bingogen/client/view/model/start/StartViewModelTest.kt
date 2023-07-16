@@ -2,7 +2,14 @@ package dev.catsuperberg.bingogen.client.view.model.start
 
 import dev.catsuperberg.bingogen.client.common.ServerAddress
 import dev.catsuperberg.bingogen.client.model.start.IStartModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -10,10 +17,13 @@ import org.junit.Test
 import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.timeout
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoMoreInteractions
@@ -27,36 +37,43 @@ class StartViewModelTest {
         private val testServersWithoutSecond = listOf("127.0.0.1:8080", "0.0.0.0:1111",)
     }
 
+
+    private val serverListFlow = MutableStateFlow<List<String>>(listOf())
     @Mock private lateinit var mockCallbacks: IStartViewModel.NavCallbacks
     @Mock private lateinit var mockState: IStartState
     @Mock private lateinit var mockModel: IStartModel
 
-
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUp() {
         MockitoAnnotations.openMocks(this)
-        Mockito.`when`(mockState.serverList).thenReturn(MutableStateFlow(listOf()))
+        Mockito.`when`(mockState.serverList).thenReturn(serverListFlow)
         val mockCallback: (ServerAddress) -> Unit = mock()
         doReturn(mockCallback).`when`(mockCallbacks).onSinglePlayer
         doReturn(mockCallback).`when`(mockCallbacks).onMultiplayer
+
+        Dispatchers.setMain(StandardTestDispatcher())
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDown() {
+        Dispatchers.resetMain()
     }
 
     @Test
     fun testNoInitialServerStringOnEmptyList() {
         createViewModelWithMocks()
-        verify(mockState).serverList
-        verifyNoMoreInteractions(mockState)
+        verify(mockState, never()).setInputToServer(any())
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun testInitialServerStringFirstFromList() {
-        Mockito.`when`(mockState.serverList).thenReturn(MutableStateFlow(testServers))
+    fun testInitialServerStringFirstFromList() = runTest {
         createViewModelWithMocks()
-        verify(mockState).setInputToServer(0)
+        serverListFlow.value = testServers
+        advanceUntilIdle()
+        verify(mockState, timeout(500)).setInputToServer(0)
     }
 
     @Test

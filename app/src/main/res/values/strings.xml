@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Bingogen</string>
+    <string name="app_name_stylized">BingoGEN</string>
+    <string name="server_address_example">127.0.0.1:8080</string>
+    <string name="server_input">Server</string>
+    <string name="server_delete">Delete server</string>
+    <string name="server_saved_list">Saved servers</string>
+    <string name="start_single_player">Single Player</string>
+    <string name="start_multiplayer">Multiplayer</string>
+    <string name="under_construction">Under Construction</string>
+    <string name="back">Back</string>
 </resources>

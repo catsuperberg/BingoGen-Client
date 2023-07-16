@@ -10,6 +10,7 @@ import com.bumble.appyx.core.node.ParentNode
 import com.bumble.appyx.navmodel.backstack.BackStack
 import com.bumble.appyx.navmodel.backstack.operation.pop
 import com.bumble.appyx.navmodel.backstack.operation.push
+import dev.catsuperberg.bingogen.client.common.ServerAddress
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.node.helper.screenNode
 import dev.catsuperberg.bingogen.client.ui.single.GameScreen
@@ -25,6 +26,7 @@ import org.koin.core.scope.Scope
 
 class SinglePlayerNode (
     buildContext: BuildContext,
+    private val server: ServerAddress,
     private val backStack: BackStack<NavTarget> = BackStack(
         initialElement = NavTarget.GameSetup,
         savedStateMap = buildContext.savedStateMap,
@@ -56,7 +58,7 @@ class SinglePlayerNode (
                     },
                     onBack = ::onFinish,
                 )
-                GameSetupScreen(get { parametersOf(callbacks) })
+                GameSetupScreen(get { parametersOf(callbacks, server) })
             }
             is NavTarget.Game -> screenNode(buildContext) {
                 val callbacks = IGameViewModel.NavCallbacks(onBack = { backStack.pop() })

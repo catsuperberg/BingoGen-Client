@@ -1,6 +1,10 @@
 package dev.catsuperberg.bingogen.client.common
 
-data class ServerAddress(val url: String, val port: String) {
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
+data class ServerAddress(val url: String, val port: String) : Parcelable {
     companion object {
         private val serverStringRegex = Regex("""^[A-Za-z0-9\-\.]+:[0-9]+$""")
 
@@ -10,4 +14,6 @@ data class ServerAddress(val url: String, val port: String) {
             return this.split(":").let { ServerAddress(it[0], it[1]) }
         }
     }
+
+    override fun toString() = "$url:$port"
 }

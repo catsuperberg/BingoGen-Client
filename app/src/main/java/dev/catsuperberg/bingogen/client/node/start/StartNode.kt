@@ -10,6 +10,7 @@ import com.bumble.appyx.core.node.ParentNode
 import com.bumble.appyx.navmodel.backstack.BackStack
 import com.bumble.appyx.navmodel.backstack.operation.push
 import com.bumble.appyx.navmodel.backstack.operation.singleTop
+import dev.catsuperberg.bingogen.client.common.ServerAddress
 import dev.catsuperberg.bingogen.client.node.helper.screenNode
 import dev.catsuperberg.bingogen.client.node.multiplayer.MultiplayerNode
 import dev.catsuperberg.bingogen.client.node.single.player.SinglePlayerNode
@@ -34,7 +35,7 @@ class StartNode(
         object StartScreen : NavTarget()
 
         @Parcelize
-        object SinglePlayerScreen : NavTarget()
+        class SinglePlayerScreen(val server: ServerAddress) : NavTarget()
 
         @Parcelize
         object MultiplayerScreen : NavTarget()
@@ -44,12 +45,12 @@ class StartNode(
         when (navTarget) {
             is NavTarget.StartScreen -> screenNode(buildContext) {
                 val callbacks = IStartViewModel.NavCallbacks(
-                    onSinglePlayer = { backStack.push(NavTarget.SinglePlayerScreen) },
+                    onSinglePlayer = { server -> backStack.push(NavTarget.SinglePlayerScreen(server)) },
                     onMultiplayer = { backStack.push(NavTarget.MultiplayerScreen) },
                 )
                 StartScreen(get { parametersOf(callbacks) })
             }
-            is NavTarget.SinglePlayerScreen -> SinglePlayerNode(buildContext)
+            is NavTarget.SinglePlayerScreen -> SinglePlayerNode(buildContext, navTarget.server)
             is NavTarget.MultiplayerScreen -> MultiplayerNode(buildContext)
         }
 

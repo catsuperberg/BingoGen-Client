@@ -11,7 +11,7 @@ class GameSetupViewModel(
     override val state: IGameSetupState,
     private val model: IGameSetupModel,
 ) : ViewModel(), IGameSetupViewModel {
-    // FIXME Needed as appyx don't support ViewModel as ViewModelStoreOwner onCleared() isn't called
+    // FIXME Needed as appyx doesn't support ViewModel as ViewModelStoreOwner onCleared() isn't called
     private val navCallbacks = IGameSetupViewModel.NavCallbacks(
         onStartGame = { game: String, sheet: String, sideCount: Int ->
             stopModelScope()
