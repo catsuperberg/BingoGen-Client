@@ -36,7 +36,8 @@ class GameModel(
 
     init {
         scope.launch {
-            receiver.attachDetailsFlow(detailsFlow)
+            // FIXME temp solution, should be tested to ensure old collect coroutines doesn't stay active
+            scope.launch { receiver.attachDetailsFlow(detailsFlow) }
             requestBoard(selection.game, selection.sheet, selection.sideCount)?.apply {
                 board = this
                 board?.apply {
@@ -44,8 +45,10 @@ class GameModel(
                         combine(this.hasBingo, this.hasKeptBingo) { bingo, keptBingo ->
                             bingo || keptBingo
                         }.stateIn(scope)
-                    receiver.attachBingoFlow(anyBingoFlow)
-                    receiver.attachBoardFlow(mapTaskBoardToTiles(this))
+                    // FIXME temp solution, should be tested to ensure old collect coroutines doesn't stay active
+                    scope.launch { receiver.attachBingoFlow(anyBingoFlow) }
+                    // FIXME temp solution, should be tested to ensure old collect coroutines doesn't stay active
+                    scope.launch { receiver.attachBoardFlow(mapTaskBoardToTiles(this@apply)) }
                 }
             }
         }

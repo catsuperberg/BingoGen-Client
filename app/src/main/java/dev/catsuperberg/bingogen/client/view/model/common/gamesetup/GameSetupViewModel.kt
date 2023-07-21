@@ -1,10 +1,13 @@
 package dev.catsuperberg.bingogen.client.view.model.common.gamesetup
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameSetupModel
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupState.Direction
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class GameSetupViewModel(
     navCallbacks: IGameSetupViewModel.NavCallbacks,
@@ -24,7 +27,28 @@ class GameSetupViewModel(
     )
 
     init {
+        selectGameOnFirstSelection()
+        startSelectSheetOnGameChange()
         model.requestGameList()
+    }
+
+    private fun selectGameOnFirstSelection() {
+        viewModelScope.launch {
+            state.gameSelection.collect { selection ->
+                if (selection.isNotEmpty()) {
+                    onGameChange(0)
+                    cancel()
+                }
+            }
+        }
+    }
+
+    private fun startSelectSheetOnGameChange() {
+        viewModelScope.launch {
+            state.sheetSelection.collect { selection ->
+                if (selection.isNotEmpty()) state.setChosenSheet(0)
+            }
+        }
     }
 
     override fun onBack() {
@@ -89,12 +113,13 @@ class GameSetupViewModel(
 
 class GameSetupState(): IGameSetupState {
     private val minSideCount = 2
+    private val defaultSideCount = 5
 
     override val gameSelection: MutableStateFlow<List<String>> = MutableStateFlow(listOf())
     override val chosenGame: MutableStateFlow<Int?> = MutableStateFlow(null)
     override val sheetSelection: MutableStateFlow<List<String>> = MutableStateFlow(listOf())
     override val chosenSheet: MutableStateFlow<Int?> = MutableStateFlow(null)
-    override val boardSideCount: MutableStateFlow<Int> = MutableStateFlow(minSideCount)
+    override val boardSideCount: MutableStateFlow<Int> = MutableStateFlow(defaultSideCount)
     override val snackBarMessage: MutableSharedFlow<String> = MutableSharedFlow()
 
     override fun didLoadGames(games: List<String>) {

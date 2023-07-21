@@ -2,7 +2,15 @@ package dev.catsuperberg.bingogen.client.view.model.common.gamesetup
 
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameSetupModel
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupState.Direction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
@@ -25,18 +33,65 @@ class GameSetupViewModelTest {
     @Mock private lateinit var mockState: IGameSetupState
     @Mock private lateinit var mockModel: IGameSetupModel
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUp() {
         MockitoAnnotations.openMocks(this)
         Mockito.`when`(mockCallbacks.onStartGame).thenReturn(mock())
         Mockito.`when`(mockCallbacks.onBack).thenReturn(mock())
+
+        Dispatchers.setMain(StandardTestDispatcher())
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun testInitRequestsGameList() {
         createViewModelWithMocks()
         verify(mockModel).requestGameList()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun testGameSelectedOnFirstLoad() = runTest {
+        val gameFlow: MutableStateFlow<List<String>> = MutableStateFlow(listOf())
+        Mockito.`when`(mockState.sheetSelection).thenReturn(MutableStateFlow(listOf()))
+        Mockito.`when`(mockState.gameSelection).thenReturn(gameFlow)
+
+        Mockito.`when`(mockModel.requestGameList()).then { gameFlow.value = testGames; Unit }
+        createViewModelWithMocks()
+        advanceUntilIdle()
+        gameFlow.value = testGames + listOf("additional game", "this emission should be ignored")
+        advanceUntilIdle()
+
+        verify(mockState, times(1)).setChosenGame(0)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun testSheetSelectedOnAnyGameChange() = runTest {
+        var callCounter = 0
+        val gameFlow: MutableStateFlow<List<String>> = MutableStateFlow(listOf())
+        val sheetFlow: MutableStateFlow<List<String>> = MutableStateFlow(listOf())
+        Mockito.`when`(mockState.gameSelection).thenReturn(gameFlow)
+        Mockito.`when`(mockState.sheetSelection).thenReturn(sheetFlow)
+
+        Mockito.`when`(mockModel.requestSheetList(any())).then { sheetFlow.value = sheetFlow.value + testSheets; Unit }
+        val vm = createViewModelWithMocks()
+        gameFlow.value = testGames
+        advanceUntilIdle()
+        verify(mockState, times(++callCounter)).setChosenSheet(0)
+
+        val gamesToSwitchTo = testGames.indices.filter { it != 0 }
+        gamesToSwitchTo.forEach { index ->
+            vm.onGameChange(index)
+            advanceUntilIdle()
+            verify(mockState, times(++callCounter)).setChosenSheet(0)
+        }
     }
 
     @Test

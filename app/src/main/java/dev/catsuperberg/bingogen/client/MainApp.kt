@@ -11,10 +11,10 @@ import dev.catsuperberg.bingogen.client.common.ServerAddress
 import dev.catsuperberg.bingogen.client.data.store.credentialsDataStore
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameSetupModel
-import dev.catsuperberg.bingogen.client.model.single.player.gamesetup.GameSetupModel
 import dev.catsuperberg.bingogen.client.model.start.StartModel
 import dev.catsuperberg.bingogen.client.node.multiplayer.MultiplayerNode
 import dev.catsuperberg.bingogen.client.node.single.player.SinglePlayerNode
+import dev.catsuperberg.bingogen.client.service.DefaultTaskBoardFactory
 import dev.catsuperberg.bingogen.client.service.ITaskRetriever
 import dev.catsuperberg.bingogen.client.service.TaskRetriever
 import dev.catsuperberg.bingogen.client.view.model.common.game.GameState
@@ -30,6 +30,7 @@ import dev.catsuperberg.bingogen.client.view.model.start.StartState
 import dev.catsuperberg.bingogen.client.view.model.start.StartViewModel
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType
+import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -41,6 +42,7 @@ import org.koin.dsl.ScopeDSL
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit
 import dev.catsuperberg.bingogen.client.model.multiplayer.game.GameModel as MultiplayerGameModel
 import dev.catsuperberg.bingogen.client.model.multiplayer.gamesetup.GameSetupModel as MultiplayerGameSetupModel
 import dev.catsuperberg.bingogen.client.model.single.player.game.GameModel as SinglePlayerGameModel
@@ -53,33 +55,55 @@ class MainApp : Application() {
         val commonViewModels: ScopeDSL.() -> Unit = {
             factoryOf(::TaskMapper) bind ITaskMapper::class
             factoryOf(::GridMapper) bind IGridMapper::class
-            factoryOf(::TaskRetriever) bind ITaskRetriever::class
-            factory<IGameSetupModel> { GameSetupModel(get(), get()) }
-            factory {
-                val server: ServerAddress = get()
+            factory { params ->
+                val server: ServerAddress = params.get()
+                TaskRetriever(get { parametersOf(server) }, get())
+            } bind ITaskRetriever::class
+            factory<IGameSetupModel> { params ->
+                val server: ServerAddress = params.get()
+                SinglePlayerGameSetupModel(params.get(), get { parametersOf(server) } )
+            }
+            factory<IGameModel> { params ->
+                val server: ServerAddress = params.get()
+                SinglePlayerGameModel(params.get(), params.get(), get { parametersOf(server) }, DefaultTaskBoardFactory())
+            }
+            factory {params ->
+                params.values.forEach(::println)
+                val server: ServerAddress = params.get()
                 val contentType: MediaType = MediaType.get("application/json")
+                val okHttpClient = OkHttpClient.Builder()
+                    .connectTimeout(2, TimeUnit.SECONDS) // Set the connection timeout to 5 seconds
+                    .readTimeout(2, TimeUnit.SECONDS) // Set the read timeout to 5 seconds
+                    .build()
 
                 Retrofit.Builder()
                     .baseUrl("http://$server/")
+                    .client(okHttpClient)
                     .addConverterFactory(Json.asConverterFactory(contentType))
                     .build()
             }
 
-            viewModel {
+            viewModel {params ->
+                params.values.forEach(::println)
                 val state = GameSetupState()
+                val callbacks: IGameSetupViewModel.NavCallbacks = params.get()
+                val server: ServerAddress = params.get()
                 GameSetupViewModel(
-                    navCallbacks = get(),
+                    navCallbacks = callbacks,
                     state = state,
-                    model = get { parametersOf(state, get()) },
+                    model = get { parametersOf(state, server) },
                 )
             } bind IGameSetupViewModel::class
 
-            viewModel {
+            viewModel { params ->
                 val state = GameState()
+                val callbacks: IGameViewModel.NavCallbacks = params.get()
+                val selection: IGameModel.Selection = params.get()
+                val server: ServerAddress = params.get()
                 GameViewModel(
-                    navCallbacks = get(),
+                    navCallbacks = callbacks,
                     state = state,
-                    model = get { parametersOf(state) },
+                    model = get { parametersOf(selection, state, server) },
                 )
             } bind IGameViewModel::class
         }

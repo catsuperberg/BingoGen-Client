@@ -14,6 +14,7 @@ import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.timeout
 import org.mockito.kotlin.verify
+import java.net.SocketTimeoutException
 
 class GameSetupModelTest {
     private val testGames = listOf("Game 1", "Game 2", "Game 3", "Game 4", "Game 5")
@@ -57,6 +58,24 @@ class GameSetupModelTest {
     @Test
     fun testFailedSheetRequest() = runBlocking {
         Mockito.`when`(mockRetriever.getSheets(any())).doAnswer { throw TaskApiException("") }
+        val model = GameSetupModel(mockReceiver, mockRetriever)
+        model.requestSheetList("")
+        verify(mockReceiver, timeout(200)).didServerCallFailed(any())
+        model.close()
+    }
+
+    @Test
+    fun testMessageOnGameTimeout() = runBlocking {
+        Mockito.`when`(mockRetriever.getGames()).doAnswer { throw SocketTimeoutException() }
+        val model = GameSetupModel(mockReceiver, mockRetriever)
+        model.requestGameList()
+        verify(mockReceiver, timeout(200)).didServerCallFailed(any())
+        model.close()
+    }
+
+    @Test
+    fun testMessageOnSheetTimeout() = runBlocking {
+        Mockito.`when`(mockRetriever.getSheets(any())).doAnswer { throw SocketTimeoutException() }
         val model = GameSetupModel(mockReceiver, mockRetriever)
         model.requestSheetList("")
         verify(mockReceiver, timeout(200)).didServerCallFailed(any())

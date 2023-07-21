@@ -3,6 +3,7 @@ package dev.catsuperberg.bingogen.client.node.single.player
 import android.os.Parcelable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
 import com.bumble.appyx.core.composable.Children
 import com.bumble.appyx.core.modality.BuildContext
 import com.bumble.appyx.core.node.Node
@@ -13,8 +14,8 @@ import com.bumble.appyx.navmodel.backstack.operation.push
 import dev.catsuperberg.bingogen.client.common.ServerAddress
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.node.helper.screenNode
-import dev.catsuperberg.bingogen.client.ui.single.GameScreen
-import dev.catsuperberg.bingogen.client.ui.single.GameSetupScreen
+import dev.catsuperberg.bingogen.client.ui.common.GameScreen
+import dev.catsuperberg.bingogen.client.ui.common.GameSetupScreen
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupViewModel
 import kotlinx.parcelize.Parcelize
@@ -36,9 +37,10 @@ class SinglePlayerNode (
     buildContext = buildContext,
 ), KoinScopeComponent {
     override val scope: Scope by lazy { createScope(this) }
-    private fun onFinish() {
-        scope.close()
-        finish()
+    override fun updateLifecycleState(state: Lifecycle.State) {
+        if (state == Lifecycle.State.DESTROYED)
+            scope.close()
+        super.updateLifecycleState(state)
     }
 
     sealed class NavTarget : Parcelable {
@@ -56,13 +58,13 @@ class SinglePlayerNode (
                     onStartGame = { game: String, sheet: String, sideCount: Int ->
                         backStack.push(NavTarget.Game(IGameModel.Selection(game, sheet, sideCount)))
                     },
-                    onBack = ::onFinish,
+                    onBack = ::finish,
                 )
-                GameSetupScreen(get { parametersOf(callbacks, server) })
+                GameSetupScreen(get { parametersOf(callbacks, server) } )
             }
             is NavTarget.Game -> screenNode(buildContext) {
-                val callbacks = IGameViewModel.NavCallbacks(onBack = { backStack.pop() })
-                GameScreen(get { parametersOf(navTarget.selection, callbacks) })
+                val callbacks = IGameViewModel.NavCallbacks(onBack = { backStack.pop() } )
+                GameScreen(get { parametersOf(navTarget.selection, callbacks, server) } )
             }
         }
 
