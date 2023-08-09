@@ -1,7 +1,9 @@
 package dev.catsuperberg.bingogen.client.view.model.common.game
 
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
+import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.BackHandlerState
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.NavCallbacks
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
@@ -28,8 +30,24 @@ class GameViewModelTest {
 
     @Test
     fun testOnBack() {
+        val stateFlow = MutableStateFlow(BackHandlerState.TO_EXIT_GAME)
+        whenever(mockState.backHandlerState).thenReturn(stateFlow)
         gameViewModel.onBack()
         assertOnBackCallbackCalled()
+
+        stateFlow.value = BackHandlerState.TO_SURE_PROMPT
+        gameViewModel.onBack()
+        verify(mockState).invokeSurePromptAndExitAbility()
+
+        stateFlow.value = BackHandlerState.TO_GAME_SCREEN
+        gameViewModel.onBack()
+        verify(mockModel).stopDetailsUpdates()
+    }
+
+    @Test
+    fun onStartBoard() {
+        gameViewModel.onStartBoard()
+        verify(mockModel).requestStartBoard()
     }
 
     @Test
@@ -72,12 +90,6 @@ class GameViewModelTest {
     fun testOnToggleKeptFromStart() {
         gameViewModel.onToggleKeptFromStart(testIndex)
         verify(mockModel).toggleTaskKeptFromStart(testIndex)
-    }
-
-    @Test
-    fun testOnBingo() {
-        gameViewModel.onBingo()
-        assertOnBackCallbackCalled()
     }
 
     private fun assertOnBackCallbackCalled() {

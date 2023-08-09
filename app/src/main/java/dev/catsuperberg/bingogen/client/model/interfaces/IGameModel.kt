@@ -4,6 +4,7 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 interface IGameModel {
+    fun requestStartBoard()
     fun requestDetailsUpdates(tileIndex: Int)
     fun stopDetailsUpdates()
     fun toggleTaskDone(tileIndex: Int, state: Boolean? = null)
@@ -17,4 +18,7 @@ interface IGameModel {
         val sheet: String,
         val sideCount: Int,
     ) : Parcelable
+
+
+    enum class State { UNINITIALIZED, PREGAME, ACTIVE, BINGO }
 }

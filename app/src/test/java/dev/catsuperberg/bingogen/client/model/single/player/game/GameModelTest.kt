@@ -7,36 +7,41 @@ import dev.catsuperberg.bingogen.client.common.Grid.Companion.toGrid
 import dev.catsuperberg.bingogen.client.common.MinuteAndSecondDurationFormatter
 import dev.catsuperberg.bingogen.client.common.Task
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
+import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel.State
 import dev.catsuperberg.bingogen.client.service.ITaskBoard
 import dev.catsuperberg.bingogen.client.service.ITaskBoardFactory
 import dev.catsuperberg.bingogen.client.service.ITaskRetriever
 import dev.catsuperberg.bingogen.client.service.TaskApiException
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameModelReceiver
+import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.TaskDetails
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.After
+import org.joda.time.Duration
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
+import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.never
 import org.mockito.kotlin.timeout
-import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class GameModelTest {
     private val testData = object {
@@ -44,6 +49,8 @@ class GameModelTest {
         val selection = IGameModel.Selection("test", "sheet", 5)
         val grid = DefaultTaskGrid.grid
         val idToRequest = grid.indices.first
+        val boardTileGrid = grid.map { task -> IGameViewModel.BoardTile(task.shortText, task.state.status) }
+            .toGrid()
     }
 
     @Mock private lateinit var mockReceiver: IGameModelReceiver
@@ -61,11 +68,83 @@ class GameModelTest {
         whenever(mockBoard.hasKeptBingo).thenReturn(MutableStateFlow(false))
     }
 
-    @After
-    fun tearDown() {
-        clearInvocations(mockRetriever)
-        clearInvocations(mockBoardFactory)
-        clearInvocations(mockBoard)
+    @Test
+    fun testSetsBoardInfo() = runTest {
+        GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
+        verify(mockReceiver, timeout(500)).didBoardInfoChange(testData.selection)
+    }
+
+    @Test
+    fun testComesOutOfUninitializedState() = runTest {
+        GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
+        verify(mockReceiver, timeout(500)).didStateChange(State.UNINITIALIZED)
+        verify(mockReceiver, timeout(500)).didStateChange(State.PREGAME)
+    }
+
+    @Test
+    fun testStartBoard() = runTest {
+        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
+        verify(mockReceiver, timeout(500)).didStateChange(State.UNINITIALIZED)
+        verify(mockReceiver, timeout(500)).didStateChange(State.PREGAME)
+        model.requestStartBoard()
+        verify(mockReceiver, timeout(500)).didStateChange(State.ACTIVE)
+        verify(mockReceiver, timeout(500).times(1)).didGridChange(testData.boardTileGrid)
+    }
+
+    @Test
+    fun testStartIgnoredWhenActive() = runTest {
+        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
+        verify(mockReceiver, timeout(500)).didStateChange(State.UNINITIALIZED)
+        verify(mockReceiver, timeout(500)).didStateChange(State.PREGAME)
+        model.requestStartBoard()
+        model.requestStartBoard()
+
+        verify(mockReceiver, timeout(500).times(1)).didStateChange(State.ACTIVE)
+        verify(mockReceiver, timeout(500).times(1)).didGridChange(testData.boardTileGrid)
+    }
+
+    @Test
+    fun testAnyBingoFinishesBoard() = runTest {
+        val bingoFlow = MutableStateFlow(false)
+        val keptBingoFlow = MutableStateFlow(false)
+        whenever(mockBoard.hasBingo).thenReturn(bingoFlow)
+        whenever(mockBoard.hasKeptBingo).thenReturn(keptBingoFlow)
+
+        verifyBingoStateOnEmission { bingoFlow.value = true }
+        bingoFlow.value = false
+        verifyBingoStateOnEmission { keptBingoFlow.value = true }
+    }
+
+    private fun verifyBingoStateOnEmission(flowEmission: () -> Unit) {
+        val receiver = mock(IGameModelReceiver::class.java)
+        val bingoModel = GameModel(testData.selection, receiver, mockRetriever, mockBoardFactory)
+        verify(receiver, timeout(500)).didStateChange(State.PREGAME)
+        bingoModel.requestStartBoard()
+        verify(receiver, timeout(500)).didStateChange(State.ACTIVE)
+        flowEmission()
+        verify(receiver, timeout(500)).didStateChange(State.BINGO)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun testTimeUpdater() = runTest {
+        val testScope = TestScope(UnconfinedTestDispatcher())
+        val timeCollectorFlow = MutableSharedFlow<Duration>()
+        whenever(mockReceiver.didTimeChange(any())).then {
+            this.launch { timeCollectorFlow.emit(Duration.ZERO) }
+            Unit
+        }
+
+        val secondsToCheck = 5
+        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, modelScope = testScope)
+        advanceUntilIdle()
+        timeCollectorFlow.test {
+            model.requestStartBoard()
+            testScope.advanceTimeBy(100)
+            repeat(secondsToCheck) { testScope.advanceTimeBy(1_000) }
+            cancelAndIgnoreRemainingEvents()
+        }
+        testScope.cancel()
     }
 
     @Test
@@ -76,24 +155,27 @@ class GameModelTest {
 
         whenever(mockBoardFactory.create(any(), anyOrNull())).then { throw Exception(testData.exceptionMessage) }
 
-        GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, scope)
+        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, scope)
 
         exceptions.test {
             skipItems(1)
+            model.requestStartBoard()
             assertEquals(testData.exceptionMessage, awaitItem().first())
         }
     }
 
     @Test
-    fun testBoardCreationDoesntFail() = runTest {
+    fun testHandlerWithoutException() = runTest {
         val exceptions = MutableStateFlow<List<String>>(listOf())
         val handler = customExceptionHandler(exceptions)
         val scope = CoroutineScope(Job() + handler)
 
-        GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, scope)
+        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, scope)
+        model.requestStartBoard()
 
         exceptions.test {
             skipItems(1)
+            model.requestStartBoard()
             expectNoEvents()
         }
         verify(mockReceiver, never()).didModelFail(any())
@@ -102,7 +184,7 @@ class GameModelTest {
     @Test
     fun testInitAttachesBoardFlow() = runTest {
         GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        verify(mockReceiver, timeout(500)).attachBoardFlow(any())
+        verify(mockReceiver, timeout(500)).didGridChange(any())
     }
 
     @Test
@@ -112,73 +194,32 @@ class GameModelTest {
     }
 
     @Test
-    fun testInitAttachesDetailsFlow() = runTest {
-        GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        verify(mockReceiver, timeout(500)).attachDetailsFlow(any())
-    }
-
-    @Test
     fun testInitAttachesBingoFlow() = runTest {
         GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        verify(mockReceiver, timeout(500)).attachBingoFlow(any())
-    }
-
-    @Test
-    fun testFlowPassedToBingoFlowEmitsOnAnyBingo() = runTest {
-        val bingoFlow = MutableStateFlow(false)
-        val keptBingoFLow = MutableStateFlow(false)
-        whenever(mockBoard.hasBingo).thenReturn(bingoFlow)
-        whenever(mockBoard.hasKeptBingo).thenReturn(keptBingoFLow)
-
-        val captor = argumentCaptor<StateFlow<Boolean>>()
-        GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        verify(mockReceiver, timeout(500)).attachBingoFlow(captor.capture())
-        val anyBingoFlow = captor.firstValue
-
-        anyBingoFlow.test {
-            skipItems(1)
-            bingoFlow.value = true
-            assertTrue(awaitItem())
-            keptBingoFLow.value = true
-            // stays true
-            bingoFlow.value = false
-            // stays true
-            keptBingoFLow.value = false
-            assertFalse(awaitItem())
-            keptBingoFLow.value = true
-            assertTrue(awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun testSkippedAttachmentsWhenNoBoard() = runTest {
-        initializeModelWithFailingBoardRetrieval()
-        verify(mockReceiver, never()).attachBingoFlow(any())
-        verify(mockReceiver, never()).attachBoardFlow(any())
+        verify(mockReceiver, timeout(500)).didStateChange(any())
     }
 
     @Test
     fun testDetailsRequestIgnoredWhenNoBoard() = runTest {
-        val captor = argumentCaptor<StateFlow<TaskDetails?>>()
         val model = initializeModelWithFailingBoardRetrieval()
-        verify(mockReceiver, timeout(500)).attachDetailsFlow(captor.capture())
-        verify(mockReceiver, never()).attachBoardFlow(any())
         model.requestDetailsUpdates(testData.idToRequest)
-        verifyNoMoreInteractions(mockBoard)
-        assertNull(captor.firstValue.value)
+        verify(mockReceiver, timeout(500).times(1)).didDetailsChange(null)
     }
 
     @Test
     fun testRequestDetailsUpdates() = runTest {
+        val detailsFlow = MutableSharedFlow<TaskDetails?>()
+        whenever(mockReceiver.didDetailsChange(anyOrNull())).then { invocation ->
+            val details = invocation.arguments[0] as TaskDetails?
+            this.launch { detailsFlow.emit(details) }
+            Unit
+        }
+
         val boardFlow = MutableStateFlow(testData.grid)
         whenever(mockBoard.tasks).thenReturn(boardFlow)
-        val captor = argumentCaptor<StateFlow<TaskDetails?>>()
         val durationFormatter = MinuteAndSecondDurationFormatter
-        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, timeLeftFormatter =  durationFormatter)
-        waitForBoardCreation()
-        verify(mockReceiver, timeout(500)).attachDetailsFlow(captor.capture())
-        val detailsFlow = captor.firstValue
+        val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory, timeFormatter =  durationFormatter)
+        waitForBoardCreation(model)
 
         detailsFlow.test {
             skipItems(1)
@@ -199,14 +240,19 @@ class GameModelTest {
 
     @Test
     fun testStopDetailsUpdates() = runTest {
+        val detailsFlow = MutableSharedFlow<TaskDetails?>()
+        whenever(mockReceiver.didDetailsChange(anyOrNull())).then { invocation ->
+            val details = invocation.arguments[0] as TaskDetails?
+            println(details)
+            this.launch { detailsFlow.emit(details) }
+            Unit
+        }
+
         val boardFlow = MutableStateFlow(testData.grid)
         whenever(mockBoard.tasks).thenReturn(boardFlow)
         val updateValue = { boardFlow.value = multiplyTimeToKeep(boardFlow, testData.idToRequest) }
-        val captor = argumentCaptor<StateFlow<TaskDetails?>>()
         val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        waitForBoardCreation()
-        verify(mockReceiver, timeout(500)).attachDetailsFlow(captor.capture())
-        val detailsFlow = captor.firstValue
+        waitForBoardCreation(model)
 
         detailsFlow.test {
             skipItems(1)
@@ -231,9 +277,10 @@ class GameModelTest {
     }
 
     @Test
-    fun testToggleTaskDone() {
+    fun testToggleTaskDone() = runTest {
         val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        waitForBoardCreation()
+        model.requestStartBoard()
+        waitForBoardCreation(model)
         model.toggleTaskDone(testData.idToRequest)
         verify(mockBoard, timeout(500)).toggleDone(testData.idToRequest, null)
         model.toggleTaskDone(testData.idToRequest, true)
@@ -243,9 +290,10 @@ class GameModelTest {
     }
 
     @Test
-    fun testToggleTaskTimer() {
+    fun testToggleTaskTimer() = runTest {
         val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        waitForBoardCreation()
+        model.requestStartBoard()
+        waitForBoardCreation(model)
         model.toggleTaskTimer(testData.idToRequest)
         verify(mockBoard, timeout(500)).toggleTaskTimer(testData.idToRequest, null)
         model.toggleTaskTimer(testData.idToRequest, true)
@@ -255,9 +303,10 @@ class GameModelTest {
     }
 
     @Test
-    fun testToggleTaskKeptFromStart() {
+    fun testToggleTaskKeptFromStart() = runTest {
         val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        waitForBoardCreation()
+        model.requestStartBoard()
+        waitForBoardCreation(model)
         model.toggleTaskKeptFromStart(testData.idToRequest)
         verify(mockBoard, timeout(500)).toggleKeptFromStart(testData.idToRequest, null)
         model.toggleTaskKeptFromStart(testData.idToRequest, true)
@@ -267,9 +316,9 @@ class GameModelTest {
     }
 
     @Test
-    fun testRestartTaskTimer() {
+    fun testRestartTaskTimer() = runTest {
         val model = GameModel(testData.selection, mockReceiver, mockRetriever, mockBoardFactory)
-        waitForBoardCreation()
+        waitForBoardCreation(model)
         model.restartTaskTimer(testData.idToRequest)
         verify(mockBoard, timeout(500)).resetTaskTimer(testData.idToRequest)
     }
@@ -286,7 +335,12 @@ class GameModelTest {
             exceptions.value = exceptions.value + listOf(exceptionMessage)
         }
 
-    private fun waitForBoardCreation() = runTest {
-        verify(mockReceiver, timeout(500)).attachBoardFlow(any())
+    private fun waitForBoardCreation(model: IGameModel) = runTest {
+        verify(mockReceiver, timeout(500)).didStateChange(State.UNINITIALIZED)
+        verify(mockReceiver, timeout(500)).didStateChange(State.PREGAME)
+        verify(mockReceiver, timeout(500)).didGridChange(any())
+        model.requestStartBoard()
+        verify(mockReceiver, timeout(500)).didStateChange(State.ACTIVE)
+        verify(mockReceiver, timeout(500)).didGridChange(testData.boardTileGrid)
     }
 }

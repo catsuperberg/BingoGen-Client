@@ -14,7 +14,7 @@ class TaskMapper : ITaskMapper{
             TaskState(
                 timeToKeep = dto.timeToKeepMS?.let { Duration.millis(it) },
                 keptFromStart = if (dto.fromStart) false else null,
-                status = TaskStatus.ACTIVE,
+                status = if (dto.fromStart) TaskStatus.UNKEPT else TaskStatus.UNDONE,
             )
         )
     }

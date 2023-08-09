@@ -34,6 +34,42 @@ class TaskBoardTest {
     }
 
     @Test
+    fun testToggleKeptBetweenKeptAndUnkept() = runTest {
+        val testId = testData.taskIdWithKeptOnly
+        val board = TaskBoard(testData.defaultGrid, this)
+        val toggledGrid = testData.defaultGrid.mapIndexed { index, task ->
+            if (index != testId) task
+            else task.copy(state = task.state.copy(keptFromStart = true, status = TaskStatus.KEPT))
+        }
+        board.tasks.test(timeout = 500.milliseconds) {
+            skipItems(1)
+            board.toggleKeptFromStart(testId)
+            assertEquals(toggledGrid, awaitItem())
+            board.toggleKeptFromStart(testId)
+            assertEquals(testData.defaultGrid, awaitItem())
+        }
+        board.cancelScopeJobs()
+    }
+
+    @Test
+    fun testToggleTimedTaskBetweenCountdownAndUndone() = runTest {
+        val testId = testData.taskIdWithTimeToKeep
+        val board = TaskBoard(testData.defaultGrid, this)
+        val toggledGrid = testData.defaultGrid.mapIndexed { index, task ->
+            if (index != testId) task
+            else task.copy(state = task.state.copy(status = TaskStatus.COUNTDOWN))
+        }
+        board.tasks.test(timeout = 500.milliseconds) {
+            skipItems(1)
+            board.toggleTaskTimer(testId)
+            assertEquals(toggledGrid, awaitItem())
+            board.toggleTaskTimer(testId)
+            assertEquals(testData.defaultGrid, awaitItem())
+        }
+        board.cancelScopeJobs()
+    }
+
+    @Test
     fun testUnkeptFailAfterGracePeriod() = runTest {
         val board = TaskBoard(testData.defaultGrid, this)
         board.tasks.test(timeout = 500.milliseconds) {
@@ -106,37 +142,50 @@ class TaskBoardTest {
     }
 
     @Test
-    fun testSetKeptFromStart() {
+    fun testSetKeptFromStart() = runTest {
         val indexToSet = 0
         val indexToToggle = 1
 
         val board = TaskBoard(testData.defaultGrid, scope)
 
-        board.toggleKeptFromStart(indexToSet, true)
-        board.toggleKeptFromStart(indexToToggle)
-        val setResult = board.tasks.value
+        board.tasks.test(timeout = 500.milliseconds) {
+            skipItems(1)
+            board.toggleKeptFromStart(indexToSet, true)
+            skipItems(2)
+            board.toggleKeptFromStart(indexToToggle)
+            skipItems(1)
+            val setResult = awaitItem()
 
-        board.toggleKeptFromStart(indexToSet, false)
-        board.toggleKeptFromStart(indexToToggle)
-        val unsetResult = board.tasks.value
+            board.toggleKeptFromStart(indexToSet, false)
+            board.toggleKeptFromStart(indexToToggle)
+            skipItems(1)
+            val unsetResult = awaitItem()
 
-        assertEquals(testData.gridWithFirstTwoKept, setResult)
-        assertEquals(testData.defaultGrid, unsetResult)
+            assertEquals(testData.gridWithFirstTwoKept, setResult)
+            assertEquals(testData.defaultGrid, unsetResult)
+        }
+        board.cancelScopeJobs()
     }
 
     @Test
-    fun testToggleKeptFromStart() {
+    fun testToggleKeptFromStart() = runTest {
         val indexToSet = 0
         val indexToToggle = 1
 
         val board = TaskBoard(testData.defaultGrid, scope)
-        board.toggleKeptFromStart(indexToSet, true)
-        val setResult = board.tasks.value
-        board.toggleKeptFromStart(indexToToggle)
-        val toggleResult = board.tasks.value
 
-        assertEquals(testData.gridWithFirstKept, setResult)
-        assertEquals(testData.gridWithFirstTwoKept, toggleResult)
+        board.tasks.test(timeout = 500.milliseconds) {
+            skipItems(1)
+            board.toggleKeptFromStart(indexToSet, true)
+            skipItems(1)
+            val setResult = awaitItem()
+            board.toggleKeptFromStart(indexToToggle)
+            skipItems(1)
+            val toggleResult = awaitItem()
+
+            assertEquals(testData.gridWithFirstKept, setResult)
+            assertEquals(testData.gridWithFirstTwoKept, toggleResult)
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -167,19 +216,28 @@ class TaskBoardTest {
         val indexToToggle = 1
 
         val board = TaskBoard(testData.defaultGrid, scope)
-        board.toggleKeptFromStart(indexToUnset, true)
-        board.toggleKeptFromStart(indexToToggle, true)
-        val resultsFirstToggle = board.tasks.value
-        board.toggleKeptFromStart(indexToUnset, false)
-        board.toggleKeptFromStart(indexToToggle)
-        val resultsSecondToggle = board.tasks.value
-        board.toggleKeptFromStart(indexToUnset, true)
-        board.toggleKeptFromStart(indexToToggle)
-        val resultsThirdToggle = board.tasks.value
 
-        assertEquals(testData.gridWithFirstTwoKept, resultsFirstToggle)
-        assertEquals(testData.defaultGrid, resultsSecondToggle)
-        assertEquals(testData.gridWithFirstTwoKept, resultsThirdToggle)
+        board.tasks.test(timeout = 500.milliseconds) {
+            skipItems(1)
+            board.toggleKeptFromStart(indexToUnset, true)
+            skipItems(2)
+            board.toggleKeptFromStart(indexToToggle, true)
+            skipItems(1)
+            val resultsFirstToggle = awaitItem()
+            board.toggleKeptFromStart(indexToUnset, false)
+            skipItems(1)
+            board.toggleKeptFromStart(indexToToggle)
+            val resultsSecondToggle = awaitItem()
+            board.toggleKeptFromStart(indexToUnset, true)
+            skipItems(2)
+            board.toggleKeptFromStart(indexToToggle)
+            skipItems(1)
+            val resultsThirdToggle = awaitItem()
+
+            assertEquals(testData.gridWithFirstTwoKept, resultsFirstToggle)
+            assertEquals(testData.defaultGrid, resultsSecondToggle)
+            assertEquals(testData.gridWithFirstTwoKept, resultsThirdToggle)
+        }
     }
 
     @Test
@@ -206,10 +264,27 @@ class TaskBoardTest {
         board.tasks.test(timeout = 500.milliseconds) {
             skipItems(1)
             board.toggleTaskTimer(taskId, true)
+            skipItems(1)  // state change
             val expectedTimeToKeep = initialTimeToKeep.minus(1_000)
             val result = awaitItem()
             assertEquals(expectedTimeToKeep, result[taskId].state.timeToKeep)
         }
+        board.cancelScopeJobs()
+    }
+
+    @Test
+    fun testRepeatedTimerActivationIgnored() = runTest {
+        val taskId = testData.taskIdWithTimeToKeep
+        val board = TaskBoard(testData.defaultGrid, this)
+
+        board.toggleTaskTimer(taskId, true)
+        val initialTimerCoroutineCount = this.coroutineContext[Job]?.children?.count()
+
+        board.toggleTaskTimer(taskId, true)
+        board.toggleTaskTimer(taskId, true)
+        val resultCoroutineCount = this.coroutineContext[Job]?.children?.count()
+        assertEquals(initialTimerCoroutineCount, resultCoroutineCount)
+
         board.cancelScopeJobs()
     }
 
@@ -264,6 +339,7 @@ class TaskBoardTest {
             skipItems(1) // Skip grace period
             val expectedItems = initialTimeToKeep.standardSeconds.toInt()
             board.toggleTaskTimer(taskId, true)
+            skipItems(1) // Skip state change
             advanceTimeBy(initialTimeToKeep.millis*2)
             val caughtEvents = cancelAndConsumeRemainingEvents()
             assertEquals(expectedItems, caughtEvents.count())
@@ -279,7 +355,7 @@ class TaskBoardTest {
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
         val board = TaskBoard(testData.defaultGrid, this)
         board.tasks.test(timeout = 500.milliseconds) {
-            assertEquals(TaskStatus.ACTIVE, board.tasks.value[taskId].state.status)
+            assertEquals(TaskStatus.UNDONE, board.tasks.value[taskId].state.status)
             skipItems(1)
             board.toggleTaskTimer(taskId, true)
             advanceTimeBy(initialTimeToKeep.millis*2)
@@ -291,20 +367,20 @@ class TaskBoardTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun testTimerFinishMarksKeptTaskAsActive() = runTest {
+    fun testTimerFinishMarksKeptTaskAsKept() = runTest {
         val taskId = testData.taskIdWithTimeToKeepAndKept
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
         val board = TaskBoard(testData.defaultGrid, this)
         board.tasks.test(timeout = 500.milliseconds) {
-            assertEquals(TaskStatus.ACTIVE, board.tasks.value[taskId].state.status)
+            assertEquals(TaskStatus.UNKEPT, board.tasks.value[taskId].state.status)
             skipItems(1)
             board.toggleKeptFromStart(taskId)
             board.toggleTaskTimer(taskId, true)
             advanceTimeBy(initialTimeToKeep.millis*2)
             cancelAndConsumeRemainingEvents()
             advanceUntilIdle()
-            assertEquals(TaskStatus.ACTIVE, board.tasks.value[taskId].state.status)
+            assertEquals(TaskStatus.KEPT, board.tasks.value[taskId].state.status)
         }
         board.cancelScopeJobs()
     }
@@ -316,10 +392,10 @@ class TaskBoardTest {
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
         val board = TaskBoard(testData.defaultGrid, this)
         board.tasks.test(timeout = 500.milliseconds) {
-            assertEquals(TaskStatus.ACTIVE, board.tasks.value[taskId].state.status)
+            assertEquals(TaskStatus.UNKEPT, board.tasks.value[taskId].state.status)
             skipItems(1)
             board.toggleKeptFromStart(taskId)
-            skipItems(1)
+            skipItems(2)
             val expectedTimeToKeep = initialTimeToKeep.minus(1_000)
             val result = awaitItem()
             assertEquals(expectedTimeToKeep, result[taskId].state.timeToKeep)
@@ -333,7 +409,7 @@ class TaskBoardTest {
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val board = TaskBoard(testData.defaultGrid, this)
         board.tasks.test(timeout = 500.milliseconds) {
-            assertEquals(TaskStatus.ACTIVE, board.tasks.value[taskId].state.status)
+            assertEquals(TaskStatus.UNKEPT, board.tasks.value[taskId].state.status)
             skipItems(1)
             board.toggleTaskTimer(taskId, true)
             skipItems(1)
@@ -392,7 +468,7 @@ class TaskBoardTest {
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
         val board = TaskBoard(testData.defaultGrid, this)
         board.tasks.test(timeout = 500.milliseconds) {
-            assertEquals(TaskStatus.ACTIVE, board.tasks.value[taskId].state.status)
+            assertEquals(TaskStatus.UNDONE, board.tasks.value[taskId].state.status)
             skipItems(1)
             board.toggleTaskTimer(taskId, true)
             advanceTimeBy(initialTimeToKeep.millis*2)

@@ -72,8 +72,8 @@ class MainApp : Application() {
                 val server: ServerAddress = params.get()
                 val contentType: MediaType = MediaType.get("application/json")
                 val okHttpClient = OkHttpClient.Builder()
-                    .connectTimeout(2, TimeUnit.SECONDS) // Set the connection timeout to 5 seconds
-                    .readTimeout(2, TimeUnit.SECONDS) // Set the read timeout to 5 seconds
+                    .connectTimeout(2, TimeUnit.SECONDS)
+                    .readTimeout(2, TimeUnit.SECONDS)
                     .build()
 
                 Retrofit.Builder()

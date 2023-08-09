@@ -5,6 +5,6 @@ import dev.catsuperberg.bingogen.client.common.Task
 import kotlinx.coroutines.CoroutineScope
 
 class DefaultTaskBoardFactory : ITaskBoardFactory {
-    override fun create(tasks: Grid<Task>, scope: CoroutineScope?) =
+    override fun create(tasks: Grid<Task>, scope: CoroutineScope?) : ITaskBoard =
         scope?.let { TaskBoard(tasks, it) } ?: TaskBoard(tasks)
 }

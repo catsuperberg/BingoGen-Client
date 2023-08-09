@@ -9,7 +9,13 @@ data class Task(
     val state: TaskState
 )
 
-enum class TaskStatus { ACTIVE, DONE, FAILED }
+enum class TaskStatus {
+    UNDONE, UNKEPT, DONE, KEPT, COUNTDOWN, KEPT_COUNTDOWN, FAILED, INACTIVE;
+
+    companion object {
+        val WithActiveTimer = listOf(COUNTDOWN, KEPT_COUNTDOWN)
+    }
+}
 
 data class TaskState(
     val timeToKeep: Duration?,

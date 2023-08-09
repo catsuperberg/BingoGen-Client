@@ -4,6 +4,10 @@ import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameModelReceiver
 
 class GameModel(private val receiver: IGameModelReceiver): IGameModel {
+    override fun requestStartBoard() {
+        TODO("Not yet implemented")
+    }
+
     override fun requestDetailsUpdates(tileIndex: Int) {
         TODO("Not yet implemented")
     }

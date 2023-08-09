@@ -68,7 +68,7 @@ class TaskBoard(
                 if (current && stateToSet.not())
                     initialTasks[taskIndex]
                 else
-                    task.updateStatus(stateToSet.toStatus())
+                    task.updateStatus(stateToSet.toStatus(task.state.keptFromStart != null))
             } else { task }
         }.toGrid()
     }
@@ -92,12 +92,12 @@ class TaskBoard(
             _tasks.value = _tasks.value.mapIndexed { index, task ->
                 if (index == taskIndex) {
                     val stateToSet = state ?: currentKept.not()
-                    if (stateToSet) task.copy(state = task.state.copy(keptFromStart = true))
+                    if (stateToSet) task.copy(state = task.state.copy(keptFromStart = true, status = TaskStatus.KEPT))
                     else task.copy(
                         state = task.state.copy(
                             timeToKeep = if (inGracePeriod) task.state.timeToKeep else initialTasks[index].state.timeToKeep,
                             keptFromStart = false,
-                            status = if (inGracePeriod) TaskStatus.ACTIVE else TaskStatus.FAILED,
+                            status = if (inGracePeriod) TaskStatus.UNKEPT else TaskStatus.FAILED,
                         )
                     )
                 } else {
@@ -109,12 +109,18 @@ class TaskBoard(
 
     private fun updateTaskTimer(taskIndex: Int, state: Boolean?) {
         val stateToSet = state ?: timers.containsKey(taskIndex).not()
-        if(stateToSet) timers.putIfAbsent(taskIndex, scope.launch { timerTick(taskIndex) })
-        else stopTimer(taskIndex)
+        if(stateToSet) timers.computeIfAbsent(taskIndex) { scope.launch { timerTick(taskIndex) } }
+        else stopAndResetTimer(taskIndex)
     }
 
 
-    private fun stopTimer(taskIndex: Int) {
+    private fun stopAndResetTimer(taskIndex: Int) {
+        if (_tasks.value[taskIndex].state.status in listOf(TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN)) {
+            _tasks.value = _tasks.value.mapIndexed { index, task ->
+                if (index != taskIndex) task
+                else task.copy(state = task.state.copy(status = if (task.state.keptFromStart != null) TaskStatus.UNKEPT else TaskStatus.UNDONE))
+            }.toGrid()
+        }
         timers.computeIfPresent(taskIndex) { _, job ->
             job.cancel()
             resetTaskTimer(taskIndex)
@@ -123,6 +129,11 @@ class TaskBoard(
     }
 
     private suspend fun timerTick(taskIndex: Int) {
+        _tasks.value = _tasks.value.mapIndexed { index, task ->
+            if (index != taskIndex) task
+            else task.copy(state = task.state.copy(status = if (task.state.keptFromStart != null) TaskStatus.KEPT_COUNTDOWN else TaskStatus.COUNTDOWN))
+        }.toGrid()
+
         while(tasks.value[taskIndex].state.timeToKeep != null) {
             delay(1_000)
             _tasks.value = _tasks.value.mapIndexed { index, task ->
@@ -135,7 +146,7 @@ class TaskBoard(
                         else
                             task.copy(state = task.state.copy(
                                     timeToKeep = null,
-                                    status = if (task.state.keptFromStart == null) TaskStatus.DONE else TaskStatus.ACTIVE
+                                    status = if (task.state.keptFromStart == null) TaskStatus.DONE else TaskStatus.KEPT
                                 )
                             )
                     } else null
@@ -144,7 +155,6 @@ class TaskBoard(
         }
         timers.remove(taskIndex)
     }
-
 
     override fun resetTaskTimer(taskIndex: Int) {
         _tasks.value = _tasks.value.mapIndexed { index, task ->
@@ -193,7 +203,7 @@ class TaskBoard(
     }
 
     override fun cancelScopeJobs() {
-        timers.keys.forEach(::stopTimer)
+        timers.keys.forEach(::stopAndResetTimer)
         timers.clear()
         gracePeriodJob.cancel()
         hasBingoJob.cancel()
@@ -207,10 +217,10 @@ class TaskBoard(
         if (this.state.status != TaskStatus.FAILED) this.copy(state = this.state.copy(status = newStatus))
         else this
 
-    private fun Boolean.toStatus() = if(this) TaskStatus.DONE else TaskStatus.ACTIVE
+    private fun Boolean.toStatus(hasKept: Boolean) = if(this) TaskStatus.DONE else if (hasKept) TaskStatus.UNKEPT else TaskStatus.UNDONE
     private fun TaskStatus.toBoolean() = when(this) {
-        TaskStatus.DONE -> true
-        TaskStatus.ACTIVE -> false
-        else -> throw IllegalArgumentException("Can only convert ${TaskStatus.DONE.name} and ${TaskStatus.ACTIVE.name} to Boolean")
+        TaskStatus.DONE, TaskStatus.KEPT -> true
+        TaskStatus.UNDONE, TaskStatus.UNKEPT, TaskStatus.COUNTDOWN -> false
+        else -> throw IllegalArgumentException("Can only convert ${TaskStatus.DONE.name} and ${TaskStatus.UNDONE.name} to Boolean. But ${this.name} conversion was attempted.")
     }
 }

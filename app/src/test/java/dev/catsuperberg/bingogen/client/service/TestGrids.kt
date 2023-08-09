@@ -8,6 +8,7 @@ import dev.catsuperberg.bingogen.client.common.TaskStatus
 import kotlin.math.pow
 
 object TestGrids {
+    const val taskIdWithKeptOnly = DefaultTaskGrid.taskIdWithKeptOnly
     const val taskIdWithTimeToKeep = DefaultTaskGrid.taskIdWithTimeToKeep
     const val taskIdWithTimeToKeepAndKept = DefaultTaskGrid.taskIdWithTimeToKeepAndKept
     const val taskIdWithUnkeptFailed = DefaultTaskGrid.taskIdWithUnkeptFailed
@@ -47,11 +48,11 @@ object TestGrids {
     }
 
     val gridWithFirstKept = defaultGrid.mapIndexed { index, task ->
-        if (index == 0) task.copy(state = task.state.copy(keptFromStart = true)) else task
+        if (index == 0) task.copy(state = task.state.copy(keptFromStart = true, status = TaskStatus.KEPT_COUNTDOWN)) else task
     }.toGrid()
 
     val gridWithFirstTwoKept = defaultGrid.mapIndexed { index, task ->
-        if (index in 0..1) task.copy(state = task.state.copy(keptFromStart = true)) else task
+        if (index in 0..1) task.copy(state = task.state.copy(keptFromStart = true, status = TaskStatus.KEPT_COUNTDOWN)) else task
     }.toGrid()
 
     val gridWithFirstTwoKeptAndOthersFailed = gridWithFailedKept.mapIndexed { index, task ->
@@ -147,7 +148,7 @@ object TestGrids {
         state = this.state.copy(
             timeToKeep = null,
             keptFromStart = true,
-            status = TaskStatus.ACTIVE
+            status = TaskStatus.KEPT
         )
     )
 

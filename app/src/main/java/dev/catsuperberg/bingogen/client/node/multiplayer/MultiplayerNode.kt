@@ -12,9 +12,9 @@ import com.bumble.appyx.navmodel.backstack.operation.pop
 import com.bumble.appyx.navmodel.backstack.operation.push
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.node.helper.screenNode
-import dev.catsuperberg.bingogen.client.ui.common.GameScreen
-import dev.catsuperberg.bingogen.client.ui.multiplayer.LobbySelectorScreen
 import dev.catsuperberg.bingogen.client.ui.common.GameSetupScreen
+import dev.catsuperberg.bingogen.client.ui.common.game.GameScreen
+import dev.catsuperberg.bingogen.client.ui.multiplayer.LobbySelectorScreen
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel
 import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupViewModel
 import dev.catsuperberg.bingogen.client.view.model.multiplayer.lobby.selector.ILobbySelectorViewModel

@@ -10,18 +10,19 @@ object DefaultTaskGrid {
     const val taskIdWithTimeToKeepAndKept = 5
     const val taskIdWithUnkeptFailed = 1
     const val taskIdWithTimeToKeepWithoutKeepFromStart = 6
+    const val taskIdWithKeptOnly = 7
 
     val grid = Grid(
         listOf(
-            Task(0, "0", "0", TaskState(defaultTaskDuration, false, TaskStatus.ACTIVE)),
-            Task(1, "1", "1", TaskState(defaultTaskDuration, false, TaskStatus.ACTIVE)),
-            Task(2, "2", "2", TaskState(defaultTaskDuration, false, TaskStatus.ACTIVE)),
-            Task(3, "3", "3", TaskState(defaultTaskDuration, false, TaskStatus.ACTIVE)),
-            Task(4, "4", "4", TaskState(defaultTaskDuration, false, TaskStatus.ACTIVE)),
-            Task(5, "5", "5", TaskState(defaultTaskDuration, false, TaskStatus.ACTIVE)),
-            Task(6, "6", "6", TaskState(defaultTaskDuration, null, TaskStatus.ACTIVE)),
-            Task(7, "7", "7", TaskState(null, false, TaskStatus.ACTIVE)),
-            Task(8, "8", "8", TaskState(null, null, TaskStatus.ACTIVE)),
+            Task(0, "0", "0", TaskState(defaultTaskDuration, false, TaskStatus.UNKEPT)),
+            Task(1, "1", "1", TaskState(defaultTaskDuration, false, TaskStatus.UNKEPT)),
+            Task(2, "2", "2", TaskState(defaultTaskDuration, false, TaskStatus.UNKEPT)),
+            Task(3, "3", "3", TaskState(defaultTaskDuration, false, TaskStatus.UNKEPT)),
+            Task(4, "4", "4", TaskState(defaultTaskDuration, false, TaskStatus.UNKEPT)),
+            Task(5, "5", "5", TaskState(defaultTaskDuration, false, TaskStatus.UNKEPT)),
+            Task(6, "6", "6", TaskState(defaultTaskDuration, null, TaskStatus.UNDONE)),
+            Task(7, "7", "7", TaskState(null, false, TaskStatus.UNKEPT)),
+            Task(8, "8", "8", TaskState(null, null, TaskStatus.UNDONE)),
         )
     )
 

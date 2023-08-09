@@ -39,11 +39,11 @@ object TestServerResponses {
     object Board {
         private const val sideCount = 5
         private val taskPresets = setOf(
-                Task(1, "test", "test", TaskState(Duration.millis(1), false, TaskStatus.ACTIVE)),
-                Task(2, "test", "test", TaskState(Duration.millis(1), null, TaskStatus.ACTIVE)),
-                Task(3, "test", "test", TaskState(null, null, TaskStatus.ACTIVE)),
-                Task(4, "test", "", TaskState(null, null, TaskStatus.ACTIVE)),
-                Task(0, "", "", TaskState(null, null, TaskStatus.ACTIVE)),
+                Task(1, "test", "test", TaskState(Duration.millis(1), false, TaskStatus.UNKEPT)),
+                Task(2, "test", "test", TaskState(Duration.millis(1), null, TaskStatus.UNDONE)),
+                Task(3, "test", "test", TaskState(null, null, TaskStatus.UNDONE)),
+                Task(4, "test", "", TaskState(null, null, TaskStatus.UNDONE)),
+                Task(0, "", "", TaskState(null, null, TaskStatus.UNDONE)),
             )
 
         private val boardTasks by lazy {

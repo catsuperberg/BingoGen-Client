@@ -2,24 +2,30 @@ package dev.catsuperberg.bingogen.client.view.model.common.game
 
 import app.cash.turbine.test
 import dev.catsuperberg.bingogen.client.common.Grid
-import dev.catsuperberg.bingogen.client.common.Grid.Companion.toGrid
-import dev.catsuperberg.bingogen.client.common.TaskStatus
-import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.BoardTile
-import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.TaskDetails
+import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
+import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.BackHandlerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import org.joda.time.Duration
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 
 class GameStateTest {
     private val scope = CoroutineScope(Job() + Dispatchers.Unconfined)
+    private lateinit var gameState: GameState
+
+    @Before
+    fun setup() {
+        gameState = GameState()
+    }
 
     @After
     fun tearDown() {
@@ -27,70 +33,83 @@ class GameStateTest {
     }
 
     @Test
-    fun testAttachDetailsFlow() = runTest {
-        val testValue = TaskDetails("", null, null)
-        val flow = MutableStateFlow<TaskDetails?>(null)
-        val state = GameState()
-        scope.launch { state.attachDetailsFlow(flow) }
-        state.details.test {
-            skipItems(1)
-            flow.value = testValue
-            assertEquals(testValue, awaitItem())
+    fun testDidBoardInfoChange() = runTest {
+        val testSelection = IGameModel.Selection("test game", "test sheet", 5)
+        gameState.boardInfo.test {
+            assertNotEquals(testSelection, awaitItem())
+            gameState.didBoardInfoChange(testSelection)
+            assertEquals(testSelection, awaitItem())
         }
     }
 
     @Test
-    fun testAttachBoardFlow() = runTest {
-        val testValue = Grid(List(9) { BoardTile("", TaskStatus.ACTIVE) } )
-        val flow = MutableStateFlow(testValue.map { it.copy(state = TaskStatus.FAILED) }.toGrid())
-        val state = GameState()
-        scope.launch { state.attachBoardFlow(flow) }
-        state.board.test {
-            skipItems(1)
-            flow.value = testValue
-            assertEquals(testValue, awaitItem())
+    fun testDidTimeChange() = runTest {
+        val testDuration = Duration.standardSeconds(10)
+        val expectedString = "00:10"
+        gameState.time.test {
+            assertEquals("", awaitItem())
+            gameState.didTimeChange(testDuration)
+            assertEquals(expectedString, awaitItem())
         }
     }
 
     @Test
-    fun testAttachBingoFlow() = runTest {
-        val testValue = false
-        val flow = MutableStateFlow(true)
-        val state = GameState()
-        scope.launch { state.attachBingoFlow(flow) }
-        state.hasBingo.test {
-            skipItems(1)
-            flow.value = testValue
-            assertEquals(testValue, awaitItem())
+    fun testDidDetailsChange() = runTest {
+        val testDetails = IGameViewModel.TaskDetails.Empty
+        gameState.details.test {
+            assertNull(awaitItem())
+            gameState.didDetailsChange(testDetails)
+            assertEquals(testDetails, awaitItem())
         }
     }
 
     @Test
-    fun testCollectedFlowUpdatesWithAttach() = runTest {
-        val testValue = TaskDetails("", null, null)
-        val flow = MutableStateFlow<TaskDetails?>(null)
-        val state = GameState()
-        val exposedFlow = state.details
-        scope.launch {
-            exposedFlow.test {
-                skipItems(1)
-                state.attachDetailsFlow(flow)
-                flow.value = testValue
-                assertEquals(testValue, awaitItem())
-            }
+    fun testBackHandlerStateOnDetailsChange() {
+        val expectedOnNull = BackHandlerState.TO_SURE_PROMPT
+        val expectedOnDetails = BackHandlerState.TO_GAME_SCREEN
+        gameState.didDetailsChange(IGameViewModel.TaskDetails.Empty)
+        assertEquals(expectedOnDetails, gameState.backHandlerState.value)
+        gameState.didDetailsChange(null)
+        assertEquals(expectedOnNull, gameState.backHandlerState.value)
+    }
+
+    @Test
+    fun testDidStateChange() = runTest {
+        val testState = IGameModel.State.ACTIVE
+        gameState.state.test {
+            assertEquals(IGameModel.State.PREGAME, awaitItem())
+            gameState.didStateChange(testState)
+            assertEquals(testState, awaitItem())
+        }
+    }
+
+    @Test
+    fun testDidGridChange() = runTest {
+        val testGrid = Grid(List(25) { IGameViewModel.BoardTile.Empty.copy(title = "test title") })
+        gameState.board.test {
+            assertNull(awaitItem())
+            gameState.didGridChange(testGrid)
+            assertEquals(testGrid, awaitItem())
         }
     }
 
     @Test
     fun testModelFailedEmitsSnackBarMessage() = runBlocking {
         val testMessages = listOf("Message 1", "Message 2", "Message 3", "Message 4")
-        val state = GameState()
-        state.snackBarMessage.test {
+        gameState.snackBarMessage.test {
             testMessages.forEach { message ->
-                state.didModelFail(message)
+                gameState.didModelFail(message)
                 val result = awaitItem()
                 assertEquals(message, result)
             }
         }
+    }
+
+    @Test
+    fun testInvokePromptAndExitAbility() {
+        val stateToAchieve = BackHandlerState.TO_EXIT_GAME
+        assertNotEquals(stateToAchieve, gameState.backHandlerState.value)
+        gameState.invokeSurePromptAndExitAbility()
+        assertEquals(stateToAchieve, gameState.backHandlerState.value)
     }
 }

@@ -10,9 +10,19 @@
     <string name="start_single_player">Single Player</string>
     <string name="start_multiplayer">Multiplayer</string>
     <string name="under_construction">Under Construction</string>
+    <string name="bingo">BINGO!</string>
     <string name="back">Back</string>
+    <string name="exit_game">Exit game</string>
     <string name="start_game">Start game</string>
     <string name="unselected_placeholder">Select</string>
     <string name="size_down">Size down</string>
     <string name="size_up">Size up</string>
+    <string name="start">Start</string>
+    <string name="kept_task_checkbox">"Kept from start: "</string>
+    <string name="done">Done</string>
+    <string name="undone">Undo</string>
+    <string name="start_task_countdown">Start task countdown</string>
+    <string name="stop_task_countdown">Stop task countdown</string>
+    <string name="reset_task_countdown">Reset task countdown</string>
+    <string name="sure_exit_game_prompt">Press back again to exit game</string>
 </resources>
