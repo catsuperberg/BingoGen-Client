@@ -82,10 +82,10 @@ fun Tile(modifier: Modifier, tile: IGameViewModel.BoardTile, onClick: () -> Unit
 @Composable
 private fun TaskStatus.color(): Color = when(this) {
     TaskStatus.FAILED -> MaterialTheme.colorScheme.error
-    TaskStatus.UNKEPT -> MaterialTheme.colorScheme.tertiary
-    TaskStatus.UNDONE -> MaterialTheme.colorScheme.primary
-    TaskStatus.DONE -> MaterialTheme.colorScheme.secondary
-    TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN -> MaterialTheme.colorScheme.primaryContainer
+    TaskStatus.UNKEPT, TaskStatus.FINISHED_UNKEPT -> MaterialTheme.colorScheme.tertiary
+    TaskStatus.UNDONE, TaskStatus.FINISHED_UNDONE -> MaterialTheme.colorScheme.primary
+    TaskStatus.DONE, TaskStatus.FINISHED_KEPT -> MaterialTheme.colorScheme.secondary
+    TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN, TaskStatus.FINISHED_COUNTDOWN -> MaterialTheme.colorScheme.primaryContainer
     TaskStatus.KEPT -> MaterialTheme.colorScheme.secondaryContainer
     TaskStatus.INACTIVE -> MaterialTheme.colorScheme.background
 }

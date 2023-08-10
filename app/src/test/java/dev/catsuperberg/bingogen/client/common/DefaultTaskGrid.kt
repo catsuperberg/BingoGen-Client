@@ -11,6 +11,7 @@ object DefaultTaskGrid {
     const val taskIdWithUnkeptFailed = 1
     const val taskIdWithTimeToKeepWithoutKeepFromStart = 6
     const val taskIdWithKeptOnly = 7
+    const val taskIdWithoutConditions = 8
 
     val grid = Grid(
         listOf(

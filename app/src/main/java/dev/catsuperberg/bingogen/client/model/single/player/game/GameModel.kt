@@ -5,6 +5,7 @@ import dev.catsuperberg.bingogen.client.common.Grid.Companion.toGrid
 import dev.catsuperberg.bingogen.client.common.IDurationFormatter
 import dev.catsuperberg.bingogen.client.common.MinuteAndSecondDurationFormatter
 import dev.catsuperberg.bingogen.client.common.Task
+import dev.catsuperberg.bingogen.client.common.TaskStatus
 import dev.catsuperberg.bingogen.client.model.common.BaseModel
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel.State
@@ -89,8 +90,16 @@ class GameModel(
     }
 
     private fun enterDone() {
+        manualBoardUpdate()
         stopAndClearActiveCoroutines()
         invokeTimerChange()
+        stopAndPreventBoardTimerChanges()
+    }
+
+    private fun manualBoardUpdate() {
+        board?.tasks?.value?.map { task -> BoardTile(task.shortText, task.state.status.convertBingoState()) }
+            ?.toGrid()
+            ?.also { tileGrid -> receiver.didGridChange(tileGrid) }
     }
 
 
@@ -114,10 +123,18 @@ class GameModel(
                     task.description,
                     task.state.timeToKeep?.let(timeFormatter::print),
                     task.state.keptFromStart,
-                    task.state.status
+                    if (state.value != State.BINGO) task.state.status else task.state.status.convertBingoState()
                 )
             )
         }
+    }
+
+    private fun TaskStatus.convertBingoState() = when (this) {
+        TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN -> TaskStatus.FINISHED_COUNTDOWN
+        TaskStatus.KEPT -> TaskStatus.FINISHED_KEPT
+        TaskStatus.UNDONE -> TaskStatus.FINISHED_UNDONE
+        TaskStatus.UNKEPT -> TaskStatus.FINISHED_UNKEPT
+        else -> this
     }
 
     override fun stopDetailsUpdates() {
@@ -145,6 +162,13 @@ class GameModel(
     override fun close() {
         board?.cancelScopeJobs()
         super.close()
+    }
+
+    private fun stopAndPreventBoardTimerChanges() {
+        board?.apply {
+            cancelScopeJobs()
+            stopInteractions()
+        }
     }
 
 

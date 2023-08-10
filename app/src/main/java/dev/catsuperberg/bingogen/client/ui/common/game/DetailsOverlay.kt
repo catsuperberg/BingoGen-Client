@@ -64,6 +64,7 @@ fun DetailsOverlay(viewModel: IGameViewModel) {
     val timerRunning = remember { derivedStateOf { detailsWithoutTimer.value.status in TaskStatus.WithActiveTimer } }
     val doneToggleIsActive =
         remember { derivedStateOf { detailsWithoutTimer.value.keptFromStart == null && timeRemaining.value == null } }
+    val suppressButtons = remember { derivedStateOf { detailsWithoutTimer.value.status in TaskStatus.Finished } }
 
     if (isActive.value) {
         Box() {
@@ -76,13 +77,16 @@ fun DetailsOverlay(viewModel: IGameViewModel) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
-                modifier = Modifier.fillMaxSize().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
             ) {
                 DescriptionText(detailsWithoutTimer.value.description)
                 KeptCheckbox(detailsWithoutTimer) { viewModel.onToggleKeptFromStart(detailsWithoutTimer.value.gridId) }
                 TaskTimer(
                     timeRemaining,
                     timerRunning,
+                    suppressButtons,
                     { viewModel.onStartTaskTimer(detailsWithoutTimer.value.gridId) },
                     { viewModel.onStopTaskTimer(detailsWithoutTimer.value.gridId) },
                     { viewModel.onRestartTaskTimer(detailsWithoutTimer.value.gridId) },
@@ -162,6 +166,7 @@ private fun DescriptionText(text: String) {
 private fun TaskTimer(
     timeRemaining: State<String?>,
     running: State<Boolean>,
+    suppressButtons: State<Boolean>,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
@@ -180,15 +185,29 @@ private fun TaskTimer(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 TimerDisplay(timeRemaining)
-                Row(
-                    Modifier.width(100.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    if (running.value) {
-                        TimerButton(onStop, painterResource(R.drawable.ic_stop), stringResource(R.string.stop_task_countdown))
-                        TimerButton(onReset, rememberVectorPainter(Icons.Filled.Refresh), stringResource(R.string.reset_task_countdown))
-                    } else {
-                        TimerButton(onStart, rememberVectorPainter(Icons.Filled.PlayArrow), stringResource(R.string.start_task_countdown))
+                if (suppressButtons.value.not()) {
+                    Row(
+                        Modifier.width(100.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        if (running.value) {
+                            TimerButton(
+                                onStop,
+                                painterResource(R.drawable.ic_stop),
+                                stringResource(R.string.stop_task_countdown)
+                            )
+                            TimerButton(
+                                onReset,
+                                rememberVectorPainter(Icons.Filled.Refresh),
+                                stringResource(R.string.reset_task_countdown)
+                            )
+                        } else {
+                            TimerButton(
+                                onStart,
+                                rememberVectorPainter(Icons.Filled.PlayArrow),
+                                stringResource(R.string.start_task_countdown)
+                            )
+                        }
                     }
                 }
             }

@@ -13,6 +13,7 @@ object TestGrids {
     const val taskIdWithTimeToKeepAndKept = DefaultTaskGrid.taskIdWithTimeToKeepAndKept
     const val taskIdWithUnkeptFailed = DefaultTaskGrid.taskIdWithUnkeptFailed
     const val taskIdWithTimeToKeepWithoutKeepFromStart = DefaultTaskGrid.taskIdWithTimeToKeepWithoutKeepFromStart
+    const val taskIdWithoutConditions = DefaultTaskGrid.taskIdWithoutConditions
 
     val defaultGrid = DefaultTaskGrid.grid
 

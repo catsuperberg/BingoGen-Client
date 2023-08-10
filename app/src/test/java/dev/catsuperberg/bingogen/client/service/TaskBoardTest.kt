@@ -565,4 +565,40 @@ class TaskBoardTest {
             }
         }
     }
+
+    @Test
+    fun stopInteractions() = runTest {
+        val toggleDoneId = testData.taskIdWithoutConditions
+        val toggleKeptId = testData.taskIdWithKeptOnly
+        val toggleTimerId = testData.taskIdWithTimeToKeep
+        val board = TaskBoard(testData.defaultGrid, this)
+        board.stopInteractions()
+
+        board.toggleDone(toggleDoneId, true)
+        assertEquals(testData.defaultGrid[toggleDoneId].state.status, board.tasks.value[toggleDoneId].state.status)
+
+        board.toggleKeptFromStart(toggleKeptId, true)
+        assertEquals(testData.defaultGrid[toggleDoneId].state.keptFromStart, board.tasks.value[toggleDoneId].state.keptFromStart)
+
+        board.toggleTaskTimer(toggleTimerId, true)
+        assertEquals(testData.defaultGrid[toggleDoneId].state.status, board.tasks.value[toggleDoneId].state.status)
+
+        assertEquals(testData.defaultGrid, board.tasks.value)
+        board.cancelScopeJobs()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun stopInteractionsResetTimer() = runTest {
+        val toggleTimerId = testData.taskIdWithTimeToKeep
+        val board = TaskBoard(testData.defaultGrid, this)
+        board.toggleTaskTimer(toggleTimerId, true)
+        advanceTimeBy(testData.defaultGrid[toggleTimerId].state.timeToKeep!!.millis/2)
+        val boardWithTimer = board.tasks.value
+        assertNotEquals(testData.defaultGrid, boardWithTimer)
+        board.stopInteractions()
+        board.toggleTaskTimer(toggleTimerId, true)
+        assertEquals(boardWithTimer, board.tasks.value)
+        board.cancelScopeJobs()
+    }
 }

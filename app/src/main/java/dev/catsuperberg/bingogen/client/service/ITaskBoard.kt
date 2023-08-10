@@ -14,4 +14,5 @@ interface ITaskBoard {
     fun resetTaskTimer(taskIndex: Int)
     fun markKeptDoneIfResultsInBingo()
     fun cancelScopeJobs()
+    fun stopInteractions()
 }

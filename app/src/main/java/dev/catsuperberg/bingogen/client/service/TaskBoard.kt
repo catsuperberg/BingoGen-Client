@@ -33,6 +33,7 @@ class TaskBoard(
     private val _hasKeptBingo = MutableStateFlow(hasKeptBingo(initialTasks))
     override val hasKeptBingo: StateFlow<Boolean> = _hasKeptBingo
     private val timerInitiationInstants: MutableMap<Int, Instant> = mutableMapOf()
+    private var inactive = false
 
     private val hasBingoJob: Job = scope.launch { tasks.map(::hasBingo).collect(_hasBingo::emit) }
     private val keptBingoJob: Job = scope.launch { tasks.map(::hasKeptBingo).collect(_hasKeptBingo::emit) }
@@ -88,6 +89,7 @@ class TaskBoard(
 
 
     override fun toggleDone(taskIndex: Int, state: Boolean?) {
+        if (inactive) return
         if (_tasks.value[taskIndex].state.status == TaskStatus.FAILED) return
 
         _tasks.value = _tasks.value.mapIndexed { index, task ->
@@ -103,16 +105,18 @@ class TaskBoard(
     }
 
     override fun toggleKeptFromStart(taskIndex: Int, state: Boolean?) {
-        if(tasks.value[taskIndex].state.keptFromStart == null) return
+        if (inactive) return
+        if (tasks.value[taskIndex].state.keptFromStart == null) return
         val resultState = updateKeptFromStart(taskIndex, state)
-        if(tasks.value[taskIndex].state.timeToKeep != null)
+        if (tasks.value[taskIndex].state.timeToKeep != null)
             updateTaskTimer(taskIndex, resultState)
     }
 
     override fun toggleTaskTimer(taskIndex: Int, state: Boolean?) {
-        if(initialTasks[taskIndex].state.timeToKeep == null) return
+        if (inactive) return
+        if (initialTasks[taskIndex].state.timeToKeep == null) return
         val resultState = updateTaskTimer(taskIndex, state)
-        if(tasks.value[taskIndex].state.keptFromStart != null)
+        if (tasks.value[taskIndex].state.keptFromStart != null)
             updateKeptFromStart(taskIndex, resultState)
     }
 
@@ -168,6 +172,7 @@ class TaskBoard(
     }
 
     override fun resetTaskTimer(taskIndex: Int) {
+        if (inactive) return
         _tasks.value = _tasks.value.mapIndexed { index, task ->
             if (index == taskIndex)
                 task.copy(state = task.state.copy(timeToKeep = initialTasks[taskIndex].state.timeToKeep))
@@ -218,13 +223,15 @@ class TaskBoard(
 
     override fun cancelScopeJobs() {
         timerTickJob.cancel()
+        timerInitiationInstants.clear()
         gracePeriodJob.cancel()
         hasBingoJob.cancel()
         keptBingoJob.cancel()
     }
 
-    private fun Task.updateDuration(newDuration: Duration?) = this
-        .copy(state = this.state.copy(timeToKeep = newDuration))
+    override fun stopInteractions() {
+        inactive = true
+    }
 
     private fun Task.updateStatus(newStatus: TaskStatus) =
         if (this.state.status != TaskStatus.FAILED) this.copy(state = this.state.copy(status = newStatus))
