@@ -11,7 +11,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.*
@@ -191,14 +190,15 @@ class TaskBoardTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testUnsetKeptFromStartFailsTaskAfterGracePeriod() = runTest {
+        val timeGetter = IncrementTimeGetter(this)
         val indexToSet = 0
         val indexToToggle = 1
 
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.toggleKeptFromStart(indexToSet, true)
         board.toggleKeptFromStart(indexToToggle)
 
-        advanceUntilIdle()
+        testScheduler.advanceTimeBy(TaskBoard.gracePeriod.millis * 2)
         val resultAfterGracePeriod = board.tasks.value
 
         board.toggleKeptFromStart(indexToSet, false)
@@ -208,6 +208,7 @@ class TaskBoardTest {
         assertEquals(testData.gridWithFirstTwoKeptAndOthersFailed, resultAfterGracePeriod)
         assertEquals(testData.gridWithFailedKept, unToggledResult)
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
     @Test
@@ -250,6 +251,7 @@ class TaskBoardTest {
         testData.nullKeptTasksAt.forEach { board.toggleKeptFromStart(it) }
 
         val events = taskTurbine.cancelAndConsumeRemainingEvents()
+        events.forEach { println(it) }
         assertTrue(events.isEmpty())
 
         board.cancelScopeJobs()
@@ -265,9 +267,9 @@ class TaskBoardTest {
             skipItems(1)
             board.toggleTaskTimer(taskId, true)
             skipItems(1)  // state change
-            val expectedTimeToKeep = initialTimeToKeep.minus(1_000)
             val result = awaitItem()
-            assertEquals(expectedTimeToKeep, result[taskId].state.timeToKeep)
+            result[taskId].state.timeToKeep
+                ?.also { assertTrue(it < initialTimeToKeep) } ?: fail()
         }
         board.cancelScopeJobs()
     }
@@ -330,30 +332,34 @@ class TaskBoardTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testTimerStopsAtZero() = runTest {
+        val timeGetter = IncrementTimeGetter(this, TaskBoard.timerUpdateInterval)
         val taskId = testData.taskIdWithTimeToKeep
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.tasks.test(timeout = 500.milliseconds) {
             skipItems(1)
             skipItems(1) // Skip grace period
-            val expectedItems = initialTimeToKeep.standardSeconds.toInt()
+            val expectedItems = (initialTimeToKeep.standardSeconds * (1000.0 / TaskBoard.timerUpdateInterval)).toInt()
             board.toggleTaskTimer(taskId, true)
             skipItems(1) // Skip state change
             advanceTimeBy(initialTimeToKeep.millis*2)
             val caughtEvents = cancelAndConsumeRemainingEvents()
+            caughtEvents.forEachIndexed { index, event -> println("$index | $event") }
             assertEquals(expectedItems, caughtEvents.count())
         }
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testTimerFinishMarksTaskAsDone() = runTest {
+        val timeGetter = IncrementTimeGetter(this)
         val taskId = testData.taskIdWithTimeToKeep
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.tasks.test(timeout = 500.milliseconds) {
             assertEquals(TaskStatus.UNDONE, board.tasks.value[taskId].state.status)
             skipItems(1)
@@ -363,15 +369,17 @@ class TaskBoardTest {
             assertEquals(TaskStatus.DONE, board.tasks.value[taskId].state.status)
         }
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testTimerFinishMarksKeptTaskAsKept() = runTest {
+        val timeGetter = IncrementTimeGetter(this)
         val taskId = testData.taskIdWithTimeToKeepAndKept
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.tasks.test(timeout = 500.milliseconds) {
             assertEquals(TaskStatus.UNKEPT, board.tasks.value[taskId].state.status)
             skipItems(1)
@@ -379,10 +387,11 @@ class TaskBoardTest {
             board.toggleTaskTimer(taskId, true)
             advanceTimeBy(initialTimeToKeep.millis*2)
             cancelAndConsumeRemainingEvents()
-            advanceUntilIdle()
+            advanceTimeBy(TaskBoard.gracePeriod.millis + 100)
             assertEquals(TaskStatus.KEPT, board.tasks.value[taskId].state.status)
         }
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
     @Test
@@ -396,9 +405,9 @@ class TaskBoardTest {
             skipItems(1)
             board.toggleKeptFromStart(taskId)
             skipItems(2)
-            val expectedTimeToKeep = initialTimeToKeep.minus(1_000)
             val result = awaitItem()
-            assertEquals(expectedTimeToKeep, result[taskId].state.timeToKeep)
+            result[taskId].state.timeToKeep
+                ?.also { assertTrue(it < initialTimeToKeep) } ?: fail()
         }
         board.cancelScopeJobs()
     }
@@ -422,10 +431,11 @@ class TaskBoardTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testUnsetOnDoneByTimerTaskResetsIt() = runTest {
+        val timeGetter = IncrementTimeGetter(this)
         val taskId = testData.taskIdWithTimeToKeepWithoutKeepFromStart
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.tasks.test(timeout = 500.milliseconds) {
             skipItems(1)
             board.toggleTaskTimer(taskId, true)
@@ -435,24 +445,27 @@ class TaskBoardTest {
             assertEquals(testData.gridWithFailedKept, board.tasks.value)
         }
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testCantStartTimerOnFailedTask() = runTest {
         val failingTaskId = testData.taskIdWithUnkeptFailed
         assertNotNull(testData.defaultGrid[failingTaskId].state.timeToKeep)
         val board = TaskBoard(testData.defaultGrid, this)
-        testScheduler.advanceUntilIdle()
+        testScheduler.advanceTimeBy(TaskBoard.gracePeriod.millis + 100)
         board.toggleTaskTimer(failingTaskId, true)
         board.cancelScopeJobs()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testCantToggleKeptFromStartOnFailedTask() = runTest {
         val failingTaskId = testData.taskIdWithUnkeptFailed
         assertNotNull(testData.defaultGrid[failingTaskId].state.timeToKeep)
         val board = TaskBoard(testData.defaultGrid, this)
-        testScheduler.advanceUntilIdle()
+        testScheduler.advanceTimeBy(TaskBoard.gracePeriod.millis + 100)
         board.toggleDone(failingTaskId, true)
         assertEquals(TaskStatus.FAILED, board.tasks.value[failingTaskId].state.status)
         board.toggleDone(failingTaskId)
@@ -463,10 +476,11 @@ class TaskBoardTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testTaskDoneByTimerResetsTimerOnUndone() = runTest {
+        val timeGetter = IncrementTimeGetter(this)
         val taskId = testData.taskIdWithTimeToKeep
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.tasks.test(timeout = 500.milliseconds) {
             assertEquals(TaskStatus.UNDONE, board.tasks.value[taskId].state.status)
             skipItems(1)
@@ -478,15 +492,17 @@ class TaskBoardTest {
             assertEquals(testData.gridWithFailedKept, board.tasks.value)
         }
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun testCancelScopeJobsStopsTimers() = runTest {
+        val timeGetter = IncrementTimeGetter(this)
         val taskId = testData.taskIdWithTimeToKeep
         assertNotNull(testData.defaultGrid[taskId].state.timeToKeep)
         val initialTimeToKeep = testData.defaultGrid[taskId].state.timeToKeep!!
-        val board = TaskBoard(testData.defaultGrid, this)
+        val board = TaskBoard(testData.defaultGrid, this, timeGetter::now)
         board.tasks.test(timeout = 500.milliseconds) {
             skipItems(1)
             skipItems(1) // Skip grace period
@@ -494,11 +510,11 @@ class TaskBoardTest {
             awaitItem()
             board.cancelScopeJobs()
             advanceTimeBy(initialTimeToKeep.millis)
-            skipItems(1) // Reset timer on cancellation causes emission
             expectNoEvents()
             assertEquals(initialTimeToKeep, testData.defaultGrid[taskId].state.timeToKeep)
         }
         board.cancelScopeJobs()
+        timeGetter.close()
     }
 
     @Test

@@ -13,13 +13,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.joda.time.Duration
+import org.joda.time.Instant
+import org.joda.time.Interval
 
 class TaskBoard(
     private val initialTasks: Grid<Task>,
     private val scope: CoroutineScope = CoroutineScope(Job() + Dispatchers.Default),
+    private val timeGetter: () -> Instant = { Instant.now() }
 ) : ITaskBoard {
     companion object {
         val gracePeriod: Duration = Duration.standardSeconds(20)
+        const val timerUpdateInterval: Long = 150L
     }
 
     private val _tasks = MutableStateFlow(initialTasks)
@@ -28,14 +32,39 @@ class TaskBoard(
     override val hasBingo: StateFlow<Boolean> = _hasBingo
     private val _hasKeptBingo = MutableStateFlow(hasKeptBingo(initialTasks))
     override val hasKeptBingo: StateFlow<Boolean> = _hasKeptBingo
+    private val timerInitiationInstants: MutableMap<Int, Instant> = mutableMapOf()
 
     private val hasBingoJob: Job = scope.launch { tasks.map(::hasBingo).collect(_hasBingo::emit) }
     private val keptBingoJob: Job = scope.launch { tasks.map(::hasKeptBingo).collect(_hasKeptBingo::emit) }
-
-    private val timers: MutableMap<Int, Job> = mutableMapOf()
+    private val timerTickJob: Job = scope.launch { timersTick() }
     private val gracePeriodJob: Job = scope.launch { failUnkeptTasks(gracePeriod) }
     private val inGracePeriod: Boolean
         get() = gracePeriodJob.isCompleted.not()
+
+    private suspend fun timersTick() {
+        while(true) {
+            delay(timerUpdateInterval)
+            val currentTime = now()
+            val newTimesToKeep = timerInitiationInstants
+                .mapValues { Interval(it.value, currentTime).toDuration() }
+                .mapValues { initialTasks[it.key].state.timeToKeep?.let { initial -> initial - it.value } }
+                .mapValues { it.value?.let { duration -> if (duration > Duration.ZERO) duration else null } }
+
+            _tasks.value = _tasks.value.mapIndexed { index, task ->
+                if (index !in newTimesToKeep) task
+                else {
+                    val timerValue = newTimesToKeep[index]
+                    task.copy(state = task.state.copy(timeToKeep = timerValue, status = statusFromTimer(timerValue, task)))
+                }
+            }.toGrid()
+            newTimesToKeep.filter { it.value == null }
+                .forEach { timerInitiationInstants.remove(it.key) }
+        }
+    }
+
+    private fun statusFromTimer(timerValue: Duration?, task: Task) =
+        if (timerValue == null) if (task.state.keptFromStart == null) TaskStatus.DONE else TaskStatus.KEPT
+        else if (task.state.keptFromStart != null) TaskStatus.KEPT_COUNTDOWN else TaskStatus.COUNTDOWN
 
     private fun hasBingo(grid: Grid<Task>): Boolean {
         val linesToCheck = grid.rows + grid.columns
@@ -74,25 +103,28 @@ class TaskBoard(
     }
 
     override fun toggleKeptFromStart(taskIndex: Int, state: Boolean?) {
-        updateKeptFromStart(taskIndex, state)
+        if(tasks.value[taskIndex].state.keptFromStart == null) return
+        val resultState = updateKeptFromStart(taskIndex, state)
         if(tasks.value[taskIndex].state.timeToKeep != null)
-            updateTaskTimer(taskIndex, state)
+            updateTaskTimer(taskIndex, resultState)
     }
 
     override fun toggleTaskTimer(taskIndex: Int, state: Boolean?) {
-        updateTaskTimer(taskIndex, state)
+        if(initialTasks[taskIndex].state.timeToKeep == null) return
+        val resultState = updateTaskTimer(taskIndex, state)
         if(tasks.value[taskIndex].state.keptFromStart != null)
-            updateKeptFromStart(taskIndex, state)
+            updateKeptFromStart(taskIndex, resultState)
     }
 
-    private fun updateKeptFromStart(taskIndex: Int, state: Boolean?) {
-        if (_tasks.value[taskIndex].state.status == TaskStatus.FAILED) return
+    private fun updateKeptFromStart(taskIndex: Int, state: Boolean?) : Boolean {
+        if (_tasks.value[taskIndex].state.status == TaskStatus.FAILED) return false
+        var finalState = false
 
         _tasks.value[taskIndex].state.keptFromStart?.also { currentKept ->
             _tasks.value = _tasks.value.mapIndexed { index, task ->
                 if (index == taskIndex) {
-                    val stateToSet = state ?: currentKept.not()
-                    if (stateToSet) task.copy(state = task.state.copy(keptFromStart = true, status = TaskStatus.KEPT))
+                    finalState = state ?: currentKept.not()
+                    if (finalState) task.copy(state = task.state.copy(keptFromStart = true, status = TaskStatus.KEPT))
                     else task.copy(
                         state = task.state.copy(
                             timeToKeep = if (inGracePeriod) task.state.timeToKeep else initialTasks[index].state.timeToKeep,
@@ -105,55 +137,34 @@ class TaskBoard(
                 }
             }.toGrid()
         }
+        return finalState
     }
 
-    private fun updateTaskTimer(taskIndex: Int, state: Boolean?) {
-        val stateToSet = state ?: timers.containsKey(taskIndex).not()
-        if(stateToSet) timers.computeIfAbsent(taskIndex) { scope.launch { timerTick(taskIndex) } }
+    private fun updateTaskTimer(taskIndex: Int, state: Boolean?) : Boolean {
+        val finalState = state ?: timerInitiationInstants.containsKey(taskIndex).not()
+        if (finalState) timerInitiationInstants.computeIfAbsent(taskIndex) {
+            _tasks.value = _tasks.value.mapIndexed { index, task ->
+                if (index != taskIndex) task
+                else task.copy(state = task.state.copy(status = if (task.state.keptFromStart != null) TaskStatus.KEPT_COUNTDOWN else TaskStatus.COUNTDOWN))
+            }.toGrid()
+            now()
+        }
         else stopAndResetTimer(taskIndex)
+        return finalState
     }
 
 
     private fun stopAndResetTimer(taskIndex: Int) {
-        if (_tasks.value[taskIndex].state.status in listOf(TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN)) {
+        if (_tasks.value[taskIndex].state.status in TaskStatus.WithActiveTimer) {
             _tasks.value = _tasks.value.mapIndexed { index, task ->
                 if (index != taskIndex) task
-                else task.copy(state = task.state.copy(status = if (task.state.keptFromStart != null) TaskStatus.UNKEPT else TaskStatus.UNDONE))
+                else task.copy(state = task.state.copy(
+                    status = if (task.state.keptFromStart != null) TaskStatus.UNKEPT else TaskStatus.UNDONE,
+                    timeToKeep = initialTasks[index].state.timeToKeep,
+                ))
             }.toGrid()
         }
-        timers.computeIfPresent(taskIndex) { _, job ->
-            job.cancel()
-            resetTaskTimer(taskIndex)
-            null
-        }
-    }
-
-    private suspend fun timerTick(taskIndex: Int) {
-        _tasks.value = _tasks.value.mapIndexed { index, task ->
-            if (index != taskIndex) task
-            else task.copy(state = task.state.copy(status = if (task.state.keptFromStart != null) TaskStatus.KEPT_COUNTDOWN else TaskStatus.COUNTDOWN))
-        }.toGrid()
-
-        while(tasks.value[taskIndex].state.timeToKeep != null) {
-            delay(1_000)
-            _tasks.value = _tasks.value.mapIndexed { index, task ->
-                task.state.timeToKeep?.let { duration ->
-                    if(index == taskIndex) {
-                        val newDuration = duration.minus(1000)
-                            .let { if(it <= Duration.ZERO) null else it }
-                        if (newDuration != null)
-                            task.updateDuration(newDuration)
-                        else
-                            task.copy(state = task.state.copy(
-                                    timeToKeep = null,
-                                    status = if (task.state.keptFromStart == null) TaskStatus.DONE else TaskStatus.KEPT
-                                )
-                            )
-                    } else null
-                } ?: task
-            }.toGrid()
-        }
-        timers.remove(taskIndex)
+        timerInitiationInstants.remove(taskIndex)
     }
 
     override fun resetTaskTimer(taskIndex: Int) {
@@ -163,7 +174,10 @@ class TaskBoard(
             else
                 task
         }.toGrid()
+        timerInitiationInstants[taskIndex] = now()
     }
+
+    private fun now(): Instant = timeGetter()
 
     override fun markKeptDoneIfResultsInBingo() {
         if (hasKeptBingo.value.not()) return
@@ -185,7 +199,7 @@ class TaskBoard(
         if (index !in keptRows) tasks
         else tasks.map {
             if (it.state.status == TaskStatus.DONE) it
-            else it.copy(state = it.state.copy(null, true,TaskStatus.DONE))
+            else it.copy(state = it.state.copy(timeToKeep = null, keptFromStart = true, status = TaskStatus.DONE))
         }
     }
 
@@ -203,8 +217,7 @@ class TaskBoard(
     }
 
     override fun cancelScopeJobs() {
-        timers.keys.forEach(::stopAndResetTimer)
-        timers.clear()
+        timerTickJob.cancel()
         gracePeriodJob.cancel()
         hasBingoJob.cancel()
         keptBingoJob.cancel()

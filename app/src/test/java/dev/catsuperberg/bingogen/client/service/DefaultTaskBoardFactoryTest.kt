@@ -36,18 +36,15 @@ class DefaultTaskBoardFactoryTest {
     @Test
     fun testCreateWithScope() {
         val tasks = DefaultTaskGrid.grid
-        val taskToStart = DefaultTaskGrid.taskIdWithTimeToKeep
         val scope = CoroutineScope(Job() + UnconfinedTestDispatcher())
 
-        val taskBoard = taskBoardFactory.create(tasks, scope)
-
         val initialCoroutineCount = scope.coroutineContext[Job]?.children?.count()
+
         initialCoroutineCount?.also { initialCount ->
-            val expectedCount = initialCount + 1
-            taskBoard.toggleTaskTimer(taskToStart, true)
+            val expectedCount = initialCount + 4
+            taskBoardFactory.create(tasks, scope)
             val coroutineCount = scope.coroutineContext[Job]?.children?.count()
             assertEquals(expectedCount, coroutineCount)
         } ?: fail("Couldn't get coroutine count")
     }
-
 }
