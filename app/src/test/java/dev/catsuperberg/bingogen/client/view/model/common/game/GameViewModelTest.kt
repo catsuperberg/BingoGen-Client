@@ -3,7 +3,14 @@ package dev.catsuperberg.bingogen.client.view.model.common.game
 import dev.catsuperberg.bingogen.client.model.interfaces.IGameModel
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.BackHandlerState
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.NavCallbacks
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
@@ -28,8 +35,11 @@ class GameViewModelTest {
         gameViewModel = GameViewModel(mockNavCallbacks, mockState, mockModel)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun testOnBack() {
+    fun testOnBack() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+
         val stateFlow = MutableStateFlow(BackHandlerState.TO_EXIT_GAME)
         whenever(mockState.backHandlerState).thenReturn(stateFlow)
         gameViewModel.onBack()
@@ -42,6 +52,24 @@ class GameViewModelTest {
         stateFlow.value = BackHandlerState.TO_GAME_SCREEN
         gameViewModel.onBack()
         verify(mockModel).stopDetailsUpdates()
+
+        Dispatchers.resetMain()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun testOnBackResetsStateAfterSomeTime() = runTest {
+        val dispatcher = StandardTestDispatcher()
+        Dispatchers.setMain(dispatcher)
+
+        val stateFlow = MutableStateFlow(BackHandlerState.TO_SURE_PROMPT)
+        whenever(mockState.backHandlerState).thenReturn(stateFlow)
+        gameViewModel.onBack()
+        verify(mockState).invokeSurePromptAndExitAbility()
+        dispatcher.scheduler.advanceUntilIdle()
+        verify(mockState).setBackHandlerState(BackHandlerState.TO_SURE_PROMPT)
+
+        Dispatchers.resetMain()
     }
 
     @Test

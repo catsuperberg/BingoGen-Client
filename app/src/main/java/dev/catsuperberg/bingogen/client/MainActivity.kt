@@ -2,6 +2,8 @@ package dev.catsuperberg.bingogen.client
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.compose.material3.Surface
+import androidx.compose.ui.unit.dp
 import com.bumble.appyx.core.integration.NodeHost
 import com.bumble.appyx.core.integrationpoint.NodeActivity
 import dev.catsuperberg.bingogen.client.node.start.StartNode
@@ -13,8 +15,10 @@ class MainActivity : NodeActivity() {
 
         setContent {
             BingogenTheme {
-                NodeHost(integrationPoint = appyxIntegrationPoint) {
-                    StartNode(buildContext = it)
+                Surface(tonalElevation = 0.2.dp) {
+                    NodeHost(integrationPoint = appyxIntegrationPoint) {
+                        StartNode(buildContext = it)
+                    }
                 }
             }
         }

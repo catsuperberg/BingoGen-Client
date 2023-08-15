@@ -39,7 +39,7 @@ interface IGameViewModel : IGameRequests {
     data class NavCallbacks(val onBack: () -> Unit)
     data class BoardTile(val title: String, val state: TaskStatus) {
         companion object {
-            val Empty = BoardTile("", TaskStatus.DONE)
+            val Empty = BoardTile("", TaskStatus.INACTIVE)
         }
     }
     enum class BackHandlerState { TO_GAME_SCREEN, TO_SURE_PROMPT, TO_EXIT_GAME }
@@ -67,4 +67,5 @@ interface IGameModelReceiver {
 
 interface IGameState: IGameFields, IGameModelReceiver {
     fun invokeSurePromptAndExitAbility()
+    fun setBackHandlerState(state: BackHandlerState)
 }

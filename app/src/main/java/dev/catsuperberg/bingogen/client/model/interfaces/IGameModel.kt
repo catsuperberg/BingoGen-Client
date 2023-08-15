@@ -20,5 +20,11 @@ interface IGameModel {
     ) : Parcelable
 
 
-    enum class State { UNINITIALIZED, PREGAME, ACTIVE, BINGO }
+    enum class State {
+        UNINITIALIZED, PREGAME, ACTIVE, BINGO;
+
+        companion object {
+            val NonGame = listOf(UNINITIALIZED, PREGAME)
+        }
+    }
 }

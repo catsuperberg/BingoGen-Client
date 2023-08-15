@@ -1,5 +1,6 @@
 package dev.catsuperberg.bingogen.client.ui.common.game
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,19 +11,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.catsuperberg.bingogen.client.common.TaskStatus
+import dev.catsuperberg.bingogen.client.ui.theme.extendedColors
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel
 
 @Composable
@@ -59,33 +59,46 @@ fun Tile(modifier: Modifier, tile: IGameViewModel.BoardTile, onClick: () -> Unit
     Box(
         modifier = modifier
             .aspectRatio(1f)
-            .padding(all = 2.dp)
+            .padding(all = 1.5.dp)
     ) {
-        Button(
+        val colors = tile.state.colors()
+        val border = colors.border?.let { BorderStroke(width = 3.dp, it) }
+        OutlinedButton(
             onClick = onClick,
             shape = MaterialTheme.shapes.medium,
             contentPadding = PaddingValues(all = 4.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = tile.state.color()
+                containerColor = colors.fill,
+                contentColor = colors.content
             ),
+            border = border,
             modifier = Modifier.fillMaxSize(),
         ) {
             Text(
                 text = tile.title,
-                style = TextStyle(fontSize = 13.sp),
+                style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
             )
         }
     }
 }
 
+data class TileColors(val fill: Color, val content: Color, val border: Color? = null)
+
 @Composable
-private fun TaskStatus.color(): Color = when(this) {
-    TaskStatus.FAILED -> MaterialTheme.colorScheme.error
-    TaskStatus.UNKEPT, TaskStatus.FINISHED_UNKEPT -> MaterialTheme.colorScheme.tertiary
-    TaskStatus.UNDONE, TaskStatus.FINISHED_UNDONE -> MaterialTheme.colorScheme.primary
-    TaskStatus.DONE, TaskStatus.FINISHED_KEPT -> MaterialTheme.colorScheme.secondary
-    TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN, TaskStatus.FINISHED_COUNTDOWN -> MaterialTheme.colorScheme.primaryContainer
-    TaskStatus.KEPT -> MaterialTheme.colorScheme.secondaryContainer
-    TaskStatus.INACTIVE -> MaterialTheme.colorScheme.background
+private fun TaskStatus.colors(): TileColors = when(this) {
+    TaskStatus.FAILED ->
+        TileColors(MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError)
+    TaskStatus.UNKEPT, TaskStatus.FINISHED_UNKEPT ->
+        TileColors(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, border = MaterialTheme.colorScheme.tertiary)
+    TaskStatus.UNDONE, TaskStatus.FINISHED_UNDONE ->
+        TileColors(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+    TaskStatus.DONE, TaskStatus.FINISHED_KEPT ->
+        TileColors(MaterialTheme.extendedColors.successContainer, MaterialTheme.extendedColors.onSuccessContainer)
+    TaskStatus.COUNTDOWN, TaskStatus.KEPT_COUNTDOWN, TaskStatus.FINISHED_COUNTDOWN ->
+        TileColors(MaterialTheme.extendedColors.elevatedTertiaryContainer, MaterialTheme.extendedColors.onElevatedTertiaryContainer)
+    TaskStatus.KEPT ->
+        TileColors(MaterialTheme.extendedColors.successContainer, MaterialTheme.extendedColors.onSuccessContainer, border = MaterialTheme.colorScheme.tertiary)
+    TaskStatus.INACTIVE ->
+        TileColors(MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.onSecondary)
 }

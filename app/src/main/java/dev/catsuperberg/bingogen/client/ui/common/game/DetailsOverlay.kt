@@ -8,21 +8,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -31,18 +33,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.catsuperberg.bingogen.client.R
 import dev.catsuperberg.bingogen.client.common.TaskStatus
+import dev.catsuperberg.bingogen.client.ui.theme.extendedTypography
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -72,7 +71,7 @@ fun DetailsOverlay(viewModel: IGameViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable { viewModel.onCloseDetails() },
-                color = Color.White.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
             ) {}
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -93,26 +92,19 @@ fun DetailsOverlay(viewModel: IGameViewModel) {
                 )
 
                 if (doneToggleIsActive.value) {
-                    TextButton(onClick = {
-                        viewModel.onToggleDone(detailsWithoutTimer.value.gridId)
-                        viewModel.onCloseDetails()
-                    }) {
+                    val done = detailsWithoutTimer.value.status == TaskStatus.DONE
+                    Button(onClick = {
+                            viewModel.onToggleDone(detailsWithoutTimer.value.gridId)
+                            viewModel.onCloseDetails()
+                        },
+                        modifier = Modifier.padding(top = 54.dp)
+                    ) {
                         Text(
-                            text = if (detailsWithoutTimer.value.status == TaskStatus.DONE) stringResource(R.string.undone) else stringResource(
-                                R.string.done
-                            ),
-                            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-                            textAlign = TextAlign.Center,
+                            text = if (done) stringResource(R.string.undone) else stringResource(R.string.done),
+                            style = MaterialTheme.extendedTypography.buttonLarge,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         )
                     }
-                }
-
-                TextButton(onClick = viewModel::onCloseDetails) {
-                    Text(
-                        text = stringResource(R.string.back),
-                        style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-                        textAlign = TextAlign.Center,
-                    )
                 }
             }
         }
@@ -125,21 +117,36 @@ private fun KeptCheckbox(
     onToggle: (Boolean) -> Unit,
 ) {
     detailsWithoutTimer.value.keptFromStart?.also {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentColor = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier
+                .widthIn(min = 240.dp)
         ) {
-            Text(
-                text = stringResource(R.string.kept_task_checkbox),
-                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-                textAlign = TextAlign.Center,
-                color = Color.Black,
-                modifier = Modifier.padding(8.dp),
-            )
-            Checkbox(
-                checked = it,
-                onCheckedChange = onToggle
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                Text(
+                    text = stringResource(R.string.kept_task_checkbox),
+                    style = MaterialTheme.extendedTypography.buttonMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(8.dp),
+                )
+                Checkbox(
+                    checked = it,
+                    onCheckedChange = onToggle,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedColor = MaterialTheme.colorScheme.surfaceVariant,
+                        checkmarkColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier
+                        .height(48.dp)
+                        .padding(8.dp)
+                )
+            }
         }
     }
 }
@@ -148,16 +155,18 @@ private fun KeptCheckbox(
 private fun DescriptionText(text: String) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
     )
     {
         Text(
             text = text,
-            style = TextStyle(fontSize = 20.sp),
-            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Justify,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .heightIn(min = 84.dp)
+                .padding(14.dp),
         )
     }
 }
@@ -174,11 +183,11 @@ private fun TaskTimer(
     val timerPresent = remember { derivedStateOf { timeRemaining.value != null } }
     if (timerPresent.value) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = Color.DarkGray,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentColor = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier
                 .widthIn(min = 240.dp)
-                .height(56.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -219,8 +228,7 @@ private fun TaskTimer(
 private fun TimerDisplay(timeRemaining: State<String?>) {
     Text(
         text = timeRemaining.value ?: "",
-        style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-        color = Color.White,
+        style = MaterialTheme.extendedTypography.buttonMedium,
         textAlign = TextAlign.Center,
         modifier = Modifier.padding(8.dp),
     )
@@ -235,7 +243,6 @@ private fun TimerButton(onStop: () -> Unit, icon: Painter, description: String) 
         Icon(
             icon,
             description,
-            tint = Color.White,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(8.dp),

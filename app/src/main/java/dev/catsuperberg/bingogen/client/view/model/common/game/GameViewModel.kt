@@ -1,6 +1,7 @@
 package dev.catsuperberg.bingogen.client.view.model.common.game
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dev.catsuperberg.bingogen.client.common.Grid
 import dev.catsuperberg.bingogen.client.common.MinuteAndSecondDurationFormatter
 import dev.catsuperberg.bingogen.client.common.PreciseDurationFormatter
@@ -11,8 +12,10 @@ import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.Ba
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.BoardTile
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.NavCallbacks
 import dev.catsuperberg.bingogen.client.view.model.common.game.IGameViewModel.TaskDetails
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import org.joda.time.Duration
 
 class GameViewModel(
@@ -23,8 +26,16 @@ class GameViewModel(
     override fun onBack() {
         when(state.backHandlerState.value) {
             BackHandlerState.TO_GAME_SCREEN -> onCloseDetails()
-            BackHandlerState.TO_SURE_PROMPT -> state.invokeSurePromptAndExitAbility()
+            BackHandlerState.TO_SURE_PROMPT -> invokeSurePromptAndExit()
             BackHandlerState.TO_EXIT_GAME -> navCallbacks.onBack()
+        }
+    }
+
+    private fun invokeSurePromptAndExit() {
+        state.invokeSurePromptAndExitAbility()
+        viewModelScope.launch {
+            delay(3_000)
+            state.setBackHandlerState(BackHandlerState.TO_SURE_PROMPT)
         }
     }
 
@@ -102,5 +113,9 @@ class GameState() : IGameState {
 
     override fun invokeSurePromptAndExitAbility() {
         backHandlerState.value = BackHandlerState.TO_EXIT_GAME
+    }
+
+    override fun setBackHandlerState(state: BackHandlerState) {
+        backHandlerState.value = state
     }
 }
