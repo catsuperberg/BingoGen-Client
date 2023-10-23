@@ -120,7 +120,7 @@ class GameSetupState(): IGameSetupState {
     override val sheetSelection: MutableStateFlow<List<String>> = MutableStateFlow(listOf())
     override val chosenSheet: MutableStateFlow<Int?> = MutableStateFlow(null)
     override val boardSideCount: MutableStateFlow<Int> = MutableStateFlow(defaultSideCount)
-    override val snackBarMessage: MutableSharedFlow<String> = MutableSharedFlow()
+    override val snackBarMessage: MutableSharedFlow<String> = MutableSharedFlow(1)
 
     override fun didLoadGames(games: List<String>) {
         gameSelection.value = games

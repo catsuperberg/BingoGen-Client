@@ -8,6 +8,7 @@ import dev.catsuperberg.bingogen.client.view.model.common.gamesetup.IGameSetupMo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.net.SocketTimeoutException
+import java.net.ConnectException
 
 class GameSetupModel(
     private val receiver: IGameSetupModelReceiver,
@@ -43,6 +44,8 @@ class GameSetupModel(
         } catch (e: TaskApiException) {
             receiver.didServerCallFailed("${e.message}")
         } catch (e: SocketTimeoutException) {
+            receiver.didServerCallFailed("${e.message}")
+        } catch (e: ConnectException) {
             receiver.didServerCallFailed("${e.message}")
         }
     }
